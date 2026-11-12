@@ -1,0 +1,83 @@
+# Your job criteria. Edit these lists; no code changes needed.
+
+title_allow:
+  - member of technical staff
+
+title_include:
+  - engineer
+  - engineering
+  - developer
+  - software
+  - full stack
+  - full-stack
+  - fullstack
+  - sdet
+  - qa
+  - quality assurance
+  - test
+  - testing
+  - swe
+  - sde
+
+title_exclude:
+  # clearly senior
+  - senior
+  - sr
+  - staff
+  - principal
+  - lead
+  - manager
+  - director
+  - head
+  - vp
+  - vice president
+  - architect
+  - distinguished
+  - ios
+  - android
+  - mobile
+  # internships
+  - intern
+  - internship
+  - co-op
+  # engineering, but not software
+  - sales engineer
+  - solutions engineer
+  - solution engineer
+  - field engineer
+  - mechanical
+  - civil
+  - chemical
+  - structural
+  # security specialist roles (SWE on security teams still passes)
+  - security engineer
+  - corpsec
+
+us_markers: [united states, usa, us, u.s., americas, north america,
+  alabama, alaska, arizona, arkansas, california, colorado, connecticut,
+  delaware, florida, hawaii, idaho, illinois, indiana, iowa, kansas,
+  kentucky, louisiana, maine, maryland, massachusetts, michigan, minnesota,
+  mississippi, missouri, montana, nebraska, nevada, new hampshire,
+  new jersey, new mexico, new york, north carolina, north dakota, ohio,
+  oklahoma, oregon, pennsylvania, rhode island, south carolina,
+  south dakota, tennessee, texas, utah, vermont, virginia, washington,
+  west virginia, wisconsin, wyoming,
+  san francisco, seattle, austin, boston, chicago, los angeles]
+
+# Only counted right after a comma, e.g. "Austin, TX"
+us_state_codes: [al, ak, az, ar, ca, co, ct, de, fl, ga, hi, id, il, in, ia,
+  ks, ky, la, me, md, ma, mi, mn, ms, mo, mt, ne, nv, nh, nj, nm, ny, nc, nd,
+  oh, ok, or, pa, ri, sc, sd, tn, tx, ut, vt, va, wa, wv, wi, wy, dc]
+
+non_us_markers: [uk, united kingdom, england, london, ireland, dublin,
+  canada, toronto, vancouver, montreal, germany, berlin, munich, france,
+  paris, netherlands, amsterdam, spain, madrid, barcelona, portugal, lisbon,
+  italy, switzerland, zurich, sweden, stockholm, denmark, norway, finland,
+  poland, warsaw, india, bangalore, bengaluru, hyderabad, pune, singapore,
+  japan, tokyo, china, hong kong, korea, seoul, taiwan, australia, sydney,
+  melbourne, new zealand, brazil, sao paulo, mexico, argentina, colombia,
+  israel, tel aviv, uae, dubai, emea, apac, latam, europe]
+
+bay_area: [bay area, san francisco, san jose, oakland, berkeley, palo alto,
+  mountain view, sunnyvale, santa clara, menlo park, redwood city,
+  cupertino, fremont, san mateo, burlingame, foster city, milpitas]
