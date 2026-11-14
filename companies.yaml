@@ -1,0 +1,11 @@
+# Companies to watch. source = greenhouse, lever, or ashby; slug = name in the job-board URL.
+companies:
+  - {source: greenhouse, slug: affirm}
+  - {source: greenhouse, slug: databricks}
+  - {source: greenhouse, slug: datadog}
+  - {source: greenhouse, slug: mongodb}
+  - {source: greenhouse, slug: roblox}
+  - {source: lever, slug: spotify}
+  - {source: lever, slug: palantir}
+  - {source: ashby, slug: quora}
+  - {source: ashby, slug: ramp}

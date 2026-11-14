@@ -1,5 +1,9 @@
 """Remembers which jobs have been seen, stored in a SQLite database file."""
 import sqlite3
+import json
+
+from datetime import datetime, timezone
+from jobalerts.models import Job
 
 
 class SeenStore:
@@ -9,6 +13,11 @@ class SeenStore:
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS seen_fingerprints "
             "(fingerprint TEXT PRIMARY KEY, first_key TEXT)"
+        )
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS decisions (key TEXT PRIMARY KEY, company TEXT, "
+            "title TEXT, url TEXT, location TEXT, channel TEXT, reason TEXT, score REAL, "
+            "tags TEXT, decided_at TEXT)"
         )
 
     def has_key(self, key: str) -> bool:
@@ -32,3 +41,22 @@ class SeenStore:
 
     def save(self) -> None:
         self.db.commit()
+
+    def save_decision(self, job: Job, decision) -> None:
+        """Logs what was decided for a job. `decision` is a Decision from decide.py."""
+        self.db.execute(
+            "INSERT OR REPLACE INTO decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (job.key, job.company, job.title, str(job.url), job.location,
+             decision.channel, decision.reason, decision.score,
+             json.dumps(decision.tags), datetime.now(timezone.utc).isoformat()),
+        )
+
+    def channel_for(self, key: str) -> str | None:
+        """The channel a job was sent to, or None if no decision was logged."""
+        row = self.db.execute("SELECT channel FROM decisions WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else None
+
+    def forget(self, key: str) -> None:
+        """Un-marks a job as seen (used when processing fails, so it's retried next run)."""
+        self.db.execute("DELETE FROM seen_keys WHERE key = ?", (key,))
+        self.db.execute("DELETE FROM seen_fingerprints WHERE first_key = ?", (key,))
