@@ -81,3 +81,12 @@ non_us_markers: [uk, united kingdom, england, london, ireland, dublin,
 bay_area: [bay area, san francisco, san jose, oakland, berkeley, palo alto,
   mountain view, sunnyvale, santa clara, menlo park, redwood city,
   cupertino, fremont, san mateo, burlingame, foster city, milpitas]
+
+# Decision rules
+decision:
+  graduation: "2025-06"            # my graduation date, YYYY-MM
+  max_years_required: 2            # 3+ years required = drop
+  maybe_if_years_preferred: 3      # 3+ years preferred = #maybe
+  apply_now_score: 0.5             # 50%+ of required hard skills = #apply-now
+  maybe_score: 0.25                # 25-50% = #maybe; any below = digest
+  drop_domains: [mobile]

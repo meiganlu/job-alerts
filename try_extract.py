@@ -1,6 +1,7 @@
 from jobalerts.extract import extract, verify
 from jobalerts.filters import passes_rule_filter
 from jobalerts.sources import ashby, greenhouse, lever
+from jobalerts.decide import decide
 
 jobs = []
 gh = [j for j in greenhouse.fetch_jobs("affirm") if passes_rule_filter(j)][:1]
@@ -21,3 +22,5 @@ for job in jobs:
     print(f"required hard skills met: {met} of {len(scored)}")
     for r in facts.requirements:
         print(f"  [{r.status}] ({r.importance}, {r.kind}) {r.requirement}")
+    decision = decide(facts, job)
+    print(f"→ DECISION: {decision.channel}  |  {decision.reason}  |  {' '.join(decision.tags)}")
