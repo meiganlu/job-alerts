@@ -29,3 +29,16 @@ def test_handles_missing_fields():
     job = parse_jobs(SAMPLE, "spotify")[1]
     assert job.location == ""
     assert job.posted_at is None
+
+
+def test_requirements_list_is_included():
+    item = {
+        "id": "x",
+        "text": "Backend Engineer",
+        "hostedUrl": "https://jobs.lever.co/spotify/x",
+        "descriptionPlain": "Join our team.",
+        "lists": [{"text": "Requirements", "content": "<li>2+ years of Python</li>"}],
+    }
+    job = parse_jobs([item], "spotify")[0]
+    assert "Requirements" in job.description
+    assert "2+ years of Python" in job.description

@@ -16,6 +16,7 @@ def parse_jobs(data: dict, slug: str) -> list[Job]:
             Job(
                 source="ashby",
                 company=slug,
+                board=slug,
                 job_id=item["id"],
                 title=item["title"],
                 location=item.get("location") or "",

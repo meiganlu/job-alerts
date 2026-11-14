@@ -7,6 +7,7 @@ from pydantic import BaseModel, HttpUrl
 class Job(BaseModel):
     source: str  # where it came from: "greenhouse", "lever", "ashby", ...
     company: str
+    board: str = ""  # the company's slug on its job board, e.g. "affirm"
     job_id: str
     title: str
     location: str

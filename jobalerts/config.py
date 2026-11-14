@@ -26,3 +26,11 @@ def webhook_url(channel: str) -> str:
 
 def role_id() -> str:
     return _require("DISCORD_ROLE_ID")
+
+
+def aws_region() -> str:
+    return os.getenv("AWS_REGION")
+
+
+def bedrock_model_id() -> str:
+    return _require("BEDROCK_MODEL_ID")

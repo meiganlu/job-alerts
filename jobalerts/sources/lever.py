@@ -4,8 +4,20 @@ from datetime import datetime, timezone
 import httpx
 
 from jobalerts.models import Job
+from jobalerts.text import html_to_text
 
 HOSTS = ["https://api.lever.co", "https://api.eu.lever.co"]
+
+
+def _full_description(item: dict) -> str:
+    """Note: Lever splits a posting into a description, bullet lists (e.g. requirements),
+    and an 'additional' section. This joins all of them."""
+    parts = [item.get("descriptionPlain") or ""]
+    for section in item.get("lists") or []:
+        parts.append(section.get("text", ""))  # section heading, e.g. "Requirements"
+        parts.append(html_to_text(section.get("content", "")))
+    parts.append(item.get("additionalPlain") or "")
+    return "\n".join(part for part in parts if part)
 
 
 def parse_jobs(data: list, slug: str) -> list[Job]:
@@ -17,6 +29,7 @@ def parse_jobs(data: list, slug: str) -> list[Job]:
             Job(
                 source="lever",
                 company=slug,
+                board=slug,
                 job_id=item["id"],
                 title=item["text"],
                 location=(item.get("categories") or {}).get("location") or "",
@@ -26,7 +39,7 @@ def parse_jobs(data: list, slug: str) -> list[Job]:
                     if created_ms
                     else None
                 ),
-                description=item.get("descriptionPlain") or "",
+                description=_full_description(item),
             )
         )
     return jobs
