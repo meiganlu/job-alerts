@@ -5,7 +5,18 @@ companies:
   - {source: greenhouse, slug: datadog}
   - {source: greenhouse, slug: mongodb}
   - {source: greenhouse, slug: roblox}
+  - {source: greenhouse, slug: reddit}
+  - {source: greenhouse, slug: pinterest}
   - {source: lever, slug: spotify}
   - {source: lever, slug: palantir}
   - {source: ashby, slug: quora}
   - {source: ashby, slug: ramp}
+
+# Favorites without an adapter yet. Not checked until their adapter exists.
+waiting_for_adapter:
+  - {company: Adobe, platform: workday}
+  - {company: Intel, platform: workday}
+  - {company: Intuit, platform: unknown}
+  - {company: IBM, platform: custom}
+  - {company: Meta, platform: custom}
+  - {company: Google, platform: custom}
