@@ -62,3 +62,10 @@ def build_copy_note(job: Job) -> dict:
 def send_copy_note(job: Job, channel: str) -> None:
     response = httpx.post(config.webhook_url(channel), json=build_copy_note(job), timeout=10)
     response.raise_for_status()
+
+
+def send_text(channel: str, text: str) -> None:
+    """Posts plain text (no ping, no link previews), e.g. the daily digest."""
+    message = {"content": text, "allowed_mentions": {"parse": []}, "flags": 4}
+    response = httpx.post(config.webhook_url(channel), json=message, timeout=10)
+    response.raise_for_status()

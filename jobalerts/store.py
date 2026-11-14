@@ -60,3 +60,22 @@ class SeenStore:
         """Un-marks a job as seen (used when processing fails, so it's retried next run)."""
         self.db.execute("DELETE FROM seen_keys WHERE key = ?", (key,))
         self.db.execute("DELETE FROM seen_fingerprints WHERE first_key = ?", (key,))
+
+    def decisions_since(self, since: str, channels: tuple[str, ...]) -> list[tuple]:
+        """Decisions made after `since` (ISO time) in the given channels, oldest first."""
+        placeholders = ", ".join("?" for _ in channels)
+        return self.db.execute(
+            "SELECT rowid, company, title, url, channel, reason FROM decisions "
+            f"WHERE decided_at >= ? AND channel IN ({placeholders}) ORDER BY rowid",
+            (since, *channels),
+        ).fetchall()
+
+    def get_decision(self, number: int) -> tuple | None:
+        """One logged decision by its digest number."""
+        return self.db.execute(
+            "SELECT key, company, title, url, location, reason, tags FROM decisions WHERE rowid = ?",
+            (number,),
+        ).fetchone()
+
+    def set_channel(self, key: str, channel: str) -> None:
+        self.db.execute("UPDATE decisions SET channel = ? WHERE key = ?", (channel, key))
