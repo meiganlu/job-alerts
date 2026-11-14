@@ -56,7 +56,7 @@ class SeenStore:
         row = self.db.execute("SELECT channel FROM decisions WHERE key = ?", (key,)).fetchone()
         return row[0] if row else None
 
-    def forget(self, key: str) -> None:
+    def forget(self, key: str, fingerprint: str | None = None) -> None:
         """Un-marks a job as seen (used when processing fails, so it's retried next run)."""
         self.db.execute("DELETE FROM seen_keys WHERE key = ?", (key,))
         self.db.execute("DELETE FROM seen_fingerprints WHERE first_key = ?", (key,))

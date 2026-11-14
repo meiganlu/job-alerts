@@ -7,7 +7,7 @@ import yaml
 
 from jobalerts import notifier
 from jobalerts.decide import decide
-from jobalerts.dedupe import split_new
+from jobalerts.dedupe import split_new, fingerprint
 from jobalerts.extract import extract, verify
 from jobalerts.filters import passes_rule_filter
 from jobalerts.models import Job
@@ -70,7 +70,7 @@ def run(store: SeenStore, baseline: bool = False, limit: int = 10) -> Counter:
             facts = verify(extract(job), job)
         except Exception as error:
             print(f"! LLM failed for {job.title} @ {job.company}: {error}")
-            store.forget(job.key)  # retry next run
+            store.forget(job.key, fingerprint(job))  # retry next run
             counts["llm_errors"] += 1
             continue
         decision = decide(facts, job)
