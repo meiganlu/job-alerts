@@ -1,1 +1,1 @@
-moto[dynamodb]
+moto[dynamodb,ssm]
