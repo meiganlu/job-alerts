@@ -6,6 +6,10 @@ from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_logs as logs
 from aws_cdk import aws_scheduler as scheduler
 from aws_cdk import aws_scheduler_targets as targets
+from aws_cdk import aws_cloudwatch as cloudwatch
+from aws_cdk import aws_cloudwatch_actions as cw_actions
+from aws_cdk import aws_sns as sns
+from aws_cdk import aws_sns_subscriptions as subscriptions
 from constructs import Construct
 from dotenv import dotenv_values
 
@@ -87,6 +91,31 @@ class JobAlertsStack(cdk.Stack):
             description="Post the daily digest at 7:00 AM Pacific",
         )
 
+        # --- Alarms: email when something breaks ---
+        alarm_topic = sns.Topic(self, "AlarmTopic", topic_name="job-alerts-alarms")
+        alarm_topic.add_subscription(subscriptions.EmailSubscription(ENV["ALERT_EMAIL"]))
+        email = cw_actions.SnsAction(alarm_topic)
+
+        for function in (self.poller, self.digest):
+            errors = function.metric_errors(period=cdk.Duration.minutes(15)).create_alarm(
+                self, f"{function.node.id}Errors",
+                threshold=1,
+                evaluation_periods=1,
+                alarm_description=f"{function.function_name} failed (crash or timeout)",
+                treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+            )
+            errors.add_alarm_action(email)
+
+        not_running = self.poller.metric_invocations(period=cdk.Duration.hours(1)).create_alarm(
+            self, "PollerNotRunning",
+            threshold=1,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+            evaluation_periods=1,
+            alarm_description="The poller hasn't run in the last hour",
+            treat_missing_data=cloudwatch.TreatMissingData.BREACHING,
+        )
+        not_running.add_alarm_action(email)
+    
     # --- Helper functs ---
 
     def _table(self, construct_id: str, short_name: str, partition_key: str) -> dynamodb.Table:
