@@ -1,22 +1,29 @@
 """Builds the daily digest of jobs that were dropped or scored low."""
+import hashlib
 
 HEADINGS = {"drop": "🔇 Dropped", "digest": "📋 Low match or active clearance"}
 
 
-def build_digest_lines(rows: list[tuple]) -> list[str]:
+def short_code(job_key: str) -> str:
+    """A 6-character code for a job, used to restore it. Same job → same code."""
+    return hashlib.sha256(job_key.encode()).hexdigest()[:6]
+
+
+def build_digest_lines(rows: list[dict]) -> list[str]:
     """One line per job, grouped by why it was filtered."""
     if not rows:
         return ["✅ Nothing filtered in the last 24 hours."]
     lines = [f"**Daily digest:** {len(rows)} filtered job(s). "
-            "To restore one, run in /job-alerts terminal: `python restore.py <number>`"]
+             "To restore one, run in Terminal: `python restore.py <code>`"]
     for channel in ("drop", "digest"):
-        group = [row for row in rows if row[4] == channel]
+        group = [row for row in rows if row["channel"] == channel]
         if not group:
             continue
         lines.append(f"\n__{HEADINGS[channel]}__")
-        for number, company, title, url, _, reason in group:
-            short_reason = reason if len(reason) <= 150 else reason[:149] + "…"
-            lines.append(f"`#{number}` [{company}: {title}]({url}) — {short_reason}")
+        for row in group:
+            reason = row["reason"] if len(row["reason"]) <= 150 else row["reason"][:149] + "…"
+            lines.append(f"`#{short_code(row['job_key'])}` "
+                         f"[{row['company']}: {row['title']}]({row['url']}) — {reason}")
     return lines
 
 

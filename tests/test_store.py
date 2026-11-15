@@ -19,3 +19,10 @@ def test_forget_removes_key_and_fingerprint():
     store.forget(JOB.key)
     assert not store.has_key(JOB.key)
     assert store.first_key_for("abc123") is None
+
+
+def test_decisions_since_returns_dicts():
+    store = SeenStore(":memory:")
+    store.save_decision(JOB, Decision(channel="drop", reason="3+ years"))
+    rows = store.decisions_since("2000-01-01", ("drop",))
+    assert rows[0]["job_key"] == JOB.key
