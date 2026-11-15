@@ -49,3 +49,9 @@ def test_parse_response_reads_tool_output():
         {"toolUse": {"name": "record_job_facts", "input": {"years_required": 0}}}
     ]}}}
     assert parse_response(fake).years_required == 0
+
+
+def test_ml_platform_is_not_research():
+    job = JOB.model_copy(update={"title": "Software Engineer, Machine Learning Platform"})
+    facts = Extraction(domain="ai_research", domain_quote="Machine Learning")
+    assert verify(facts, job).domain == "general"

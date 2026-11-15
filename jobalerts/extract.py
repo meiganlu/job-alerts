@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from jobalerts import config
 from jobalerts.models import Job
+from jobalerts.text import trim_boilerplate
 
 RESUME_FILE = Path(__file__).parent.parent / "resume.txt"
 TOOL_NAME = "record_job_facts"
@@ -31,7 +32,8 @@ Rules:
   titled "Requirements", "Qualifications", "What you'll need", "Who you are", "Preferred",
   "Nice to have"). Do NOT include job duties or responsibilities (sections like "What
   you'll do", "Responsibilities", "In this role you will"). For each:
-  - requirement: the qualification, quoted exactly
+  - requirement: the full qualification, copied exactly.
+    One entry per bullet: never split one bullet into several entries or merge several into one.
   - importance: "preferred" if the posting marks it preferred, nice-to-have, a plus, or a
     bonus; otherwise "required"
   - kind: "soft" for personality, interest, passion, curiosity, or communication;
@@ -42,7 +44,9 @@ Rules:
     If a requirement pairs a skill area with a specific language or tool (e.g. "backend
     applications in Java"), and the resume shows that skill area in another language plus
     some exposure to the named one, rate it "partial".
-  - evidence: a short reason from the resume."""
+  - evidence: a reason from the resume in 10 words or fewer.
+- Each *_quote must include the number or date it supports (e.g. "by August 2027").
+- Leave every *_quote field empty ("") when its value is null, "general", or "none"."""
 
 
 class Requirement(BaseModel):
@@ -68,11 +72,11 @@ class Extraction(BaseModel):
     requirements: list[Requirement] = []
 
 
-def build_prompt(job: Job, resume: str) -> str:
+def build_prompt(job: Job) -> str:
+    """The part that changes per job. The resume lives in the cached system prompt."""
     return (
-        f"RESUME:\n{resume}\n\n"
         f"JOB POSTING:\nTitle: {job.title}\nCompany: {job.company}\n"
-        f"Location: {job.location}\n\n{job.description}"
+        f"Location: {job.location}\n\n{trim_boilerplate(job.description)}"
     )
 
 
@@ -89,8 +93,12 @@ def extract(job: Job) -> Extraction:
     client = boto3.client("bedrock-runtime", region_name=config.aws_region())
     response = client.converse(
         modelId=config.bedrock_model_id(),
-        system=[{"text": SYSTEM_PROMPT}],
-        messages=[{"role": "user", "content": [{"text": build_prompt(job, RESUME_FILE.read_text())}]}],
+        system=[
+            {"text": SYSTEM_PROMPT},
+            {"text": f"RESUME:\n{RESUME_FILE.read_text()}"},
+            {"cachePoint": {"type": "default"}},  # everything above is cached between calls
+        ],
+        messages=[{"role": "user", "content": [{"text": build_prompt(job)}]}],
         toolConfig={
             "tools": [
                 {
@@ -105,6 +113,7 @@ def extract(job: Job) -> Extraction:
         },
         inferenceConfig={"maxTokens": 3000, "temperature": 0},
     )
+    print("tokens:", response["usage"])  # shows cost per call in logs
     return parse_response(response)
 
 
@@ -135,6 +144,10 @@ def verify(facts: Extraction, job: Job) -> Extraction:
         checked.years_preferred = None
     if (checked.grad_start or checked.grad_end) and not quote_found(checked.grad_quote, posting):
         checked.grad_start = checked.grad_end = None
+
+    if checked.domain == "ai_research" and "research" not in checked.domain_quote.lower():
+        checked.domain = "general"
+    
     # A domain can only cause a drop if the evidence is in the TITLE
     if checked.domain != "general" and not quote_found(checked.domain_quote, job.title):
         checked.domain = "general"
