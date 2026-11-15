@@ -1,13 +1,15 @@
 """All AWS resources for the job-alert system."""
 import aws_cdk as cdk
 from aws_cdk import aws_dynamodb as dynamodb
-from aws_cdk import aws_iam as iam # permissions
-from aws_cdk import aws_lambda as lambda_ # Lambda functions
-from aws_cdk import aws_logs as logs # CloudWatch log groups
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_lambda as lambda_
+from aws_cdk import aws_logs as logs
+from aws_cdk import aws_scheduler as scheduler
+from aws_cdk import aws_scheduler_targets as targets
 from constructs import Construct
 from dotenv import dotenv_values
 
-ENV = dotenv_values(".env")  # read non-secret settings
+ENV = dotenv_values(".env")  # read non-secret settings like the model ID
 
 # Files the Lambda bundle needs
 BUNDLE_COMMAND = (
@@ -33,8 +35,8 @@ class JobAlertsStack(cdk.Stack):
             write_capacity=5,
         )
 
-        # --- The code bundle built inside Docker ---
-        code = lambda_.Code.from_asset(
+        # --- The code bundle (shared by both Lambdas) ---
+        self.code = lambda_.Code.from_asset(
             ".",
             exclude=[".venv", ".git", "cdk.out", "tests", "infra", "seen.db", ".env", "**/__pycache__"],
             bundling=cdk.BundlingOptions(
@@ -44,44 +46,15 @@ class JobAlertsStack(cdk.Stack):
             ),
         )
 
-        # --- The poller Lambda ---
-        # Each run adds a log stream to CloudWatch
-        poller_logs = logs.LogGroup(
-            self,
-            "PollerLogs",
-            log_group_name="/aws/lambda/job-alerts-poller",
-            retention=logs.RetentionDays.ONE_MONTH,  # old logs auto-delete
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-        )
-        self.poller = lambda_.Function(
-            self,
-            "Poller",
-            function_name="job-alerts-poller",
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            architecture=lambda_.Architecture.ARM_64,
-            handler="jobalerts.handler.poll",
-            code=code,
+        # --- Lambda 1: the poller (full pipeline) ---
+        self.poller = self._function(
+            "Poller", "job-alerts-poller", "jobalerts.handler.poll",
             timeout=cdk.Duration.minutes(10),
-            memory_size=512,
-            log_group=poller_logs,
-            environment={
-                "BEDROCK_MODEL_ID": ENV["BEDROCK_MODEL_ID"],
-                "LLM_LIMIT": "25",  # max LLM calls per run (cost safety)
-            },
+            environment={"BEDROCK_MODEL_ID": ENV["BEDROCK_MODEL_ID"], "LLM_LIMIT": "25"},
         )
-
-        # --- Permissions (exactly what the poller needs) ---
         for table in (self.seen_keys, self.seen_fingerprints, self.decisions):
             table.grant_read_write_data(self.poller)
-        self.poller.add_to_role_policy(iam.PolicyStatement(
-            actions=["ssm:GetParameter"],
-            resources=[f"arn:aws:ssm:{self.region}:{self.account}:parameter/job-alerts/*"],
-        ))
-        self.poller.add_to_role_policy(iam.PolicyStatement(
-            actions=["kms:Decrypt"],  # to decrypt SecureString secrets
-            resources=["*"],
-            conditions={"StringEquals": {"kms:ViaService": f"ssm.{self.region}.amazonaws.com"}},
-        ))
+        self._grant_secrets(self.poller)
         self.poller.add_to_role_policy(iam.PolicyStatement(
             actions=["bedrock:InvokeModel"],
             resources=[
@@ -89,6 +62,32 @@ class JobAlertsStack(cdk.Stack):
                 f"arn:aws:bedrock:*:{self.account}:inference-profile/*",
             ],
         ))
+
+        # --- Lambda 2: the daily digest ---
+        self.digest = self._function(
+            "Digest", "job-alerts-digest", "jobalerts.handler.digest",
+            timeout=cdk.Duration.minutes(1),
+        )
+        self.decisions.grant_read_data(self.digest)  # it only reads decisions
+        self._grant_secrets(self.digest)
+
+        # --- Schedules ---
+        scheduler.Schedule(
+            self, "PollEvery15Minutes",
+            schedule=scheduler.ScheduleExpression.rate(cdk.Duration.minutes(15)),
+            target=targets.LambdaInvoke(self.poller, retry_attempts=0),
+            description="Check job boards every 15 minutes",
+        )
+        scheduler.Schedule(
+            self, "DailyDigest",
+            schedule=scheduler.ScheduleExpression.cron(
+                minute="0", hour="7", time_zone=cdk.TimeZone.AMERICA_LOS_ANGELES,
+            ),
+            target=targets.LambdaInvoke(self.digest, retry_attempts=0),
+            description="Post the daily digest at 7:00 AM Pacific",
+        )
+
+    # --- Helper functs ---
 
     def _table(self, construct_id: str, short_name: str, partition_key: str) -> dynamodb.Table:
         """A small provisioned table that stays inside DynamoDB's always-free allowance."""
@@ -102,3 +101,38 @@ class JobAlertsStack(cdk.Stack):
             write_capacity=5,
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
+
+    def _function(self, construct_id: str, name: str, handler: str,
+                  timeout: cdk.Duration, environment: dict | None = None) -> lambda_.Function:
+        """A Lambda running our code bundle, with one month of logs and no automatic retries."""
+        log_group = logs.LogGroup(
+            self, f"{construct_id}Logs",
+            log_group_name=f"/aws/lambda/{name}",
+            retention=logs.RetentionDays.ONE_MONTH,
+            removal_policy=cdk.RemovalPolicy.DESTROY,
+        )
+        return lambda_.Function(
+            self, construct_id,
+            function_name=name,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            architecture=lambda_.Architecture.ARM_64,
+            handler=handler,
+            code=self.code,
+            timeout=timeout,
+            memory_size=512,
+            log_group=log_group,
+            environment=environment or {},
+            retry_attempts=0,  # a failed run isn't repeated; the next scheduled run picks up
+        )
+
+    def _grant_secrets(self, function: lambda_.Function) -> None:
+        """Lets a Lambda read and decrypt the /job-alerts/ secrets in SSM."""
+        function.add_to_role_policy(iam.PolicyStatement(
+            actions=["ssm:GetParameter"],
+            resources=[f"arn:aws:ssm:{self.region}:{self.account}:parameter/job-alerts/*"],
+        ))
+        function.add_to_role_policy(iam.PolicyStatement(
+            actions=["kms:Decrypt"],
+            resources=["*"],
+            conditions={"StringEquals": {"kms:ViaService": f"ssm.{self.region}.amazonaws.com"}},
+        ))

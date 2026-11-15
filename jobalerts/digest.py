@@ -1,6 +1,9 @@
 """Builds the daily digest of jobs that were dropped or scored low."""
 import hashlib
 
+from datetime import datetime, timedelta, timezone
+from jobalerts import notifier
+
 HEADINGS = {"drop": "🔇 Dropped", "digest": "📋 Low match or active clearance"}
 
 
@@ -38,3 +41,12 @@ def chunk(lines: list[str], limit: int = 1900) -> list[str]:
     if current:
         messages.append(current)
     return messages
+
+
+def send_daily_digest(store) -> int:
+    """Posts the last 24 hours of filtered jobs to #filtered-out. Returns how many."""
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    rows = store.decisions_since(since, ("drop", "digest"))
+    for message in chunk(build_digest_lines(rows)):
+        notifier.send_text("filtered_out", message)
+    return len(rows)
