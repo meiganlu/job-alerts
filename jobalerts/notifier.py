@@ -64,8 +64,16 @@ def send_copy_note(job: Job, channel: str) -> None:
     response.raise_for_status()
 
 
-def send_text(channel: str, text: str) -> None:
-    """Posts plain text (no ping, no link previews), e.g. the daily digest."""
-    message = {"content": text, "allowed_mentions": {"parse": []}, "flags": 4}
+def build_text_message(text: str, role_id: str | None = None) -> dict:
+    """Plain text with no link previews. With a role_id, it mentions Team Avatar (phone buzzes)."""
+    if role_id:
+        return {"content": f"{text} <@&{role_id}>",
+                "allowed_mentions": {"roles": [role_id]}, "flags": 4}
+    return {"content": text, "allowed_mentions": {"parse": []}, "flags": 4}
+
+
+def send_text(channel: str, text: str, ping: bool = False) -> None:
+    """Posts plain text, e.g. the digest (silent) or a crash report (ping=True)."""
+    message = build_text_message(text, config.role_id() if ping else None)
     response = httpx.post(config.webhook_url(channel), json=message, timeout=10)
     response.raise_for_status()

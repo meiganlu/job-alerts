@@ -1,5 +1,5 @@
 from jobalerts.models import Job
-from jobalerts.notifier import build_message, build_copy_note, short_label
+from jobalerts.notifier import build_message, build_copy_note, short_label, build_text_message
 
 JOB = Job(
     source="greenhouse",
@@ -40,3 +40,12 @@ def test_long_titles_are_shortened():
     label = short_label(long_job)
     assert len(label) == 70
     assert label.endswith("…")
+
+
+def test_text_message_pings_only_when_asked():
+    loud = build_text_message("🚨 crash", role_id="123")
+    assert loud["content"] == "🚨 crash <@&123>"
+    assert loud["allowed_mentions"] == {"roles": ["123"]}
+
+    quiet = build_text_message("digest")
+    assert quiet["allowed_mentions"] == {"parse": []}

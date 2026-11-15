@@ -14,6 +14,7 @@ def _report_crash(name: str, error: Exception) -> None:
             "system_health",
             f"🚨 **{name} failed:** `{type(error).__name__}: {str(error)[:300]}`\n"
             f"Logs: CloudWatch → /aws/lambda/job-alerts-{name}",
+            ping=True,
         )
     except Exception as report_error:
         print("Could not post to #system-health:", report_error)
