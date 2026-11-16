@@ -11,6 +11,7 @@ STATUS_ICONS = {"met": "🌿", "partial": "🌙", "not_met": "🚩"}
 GAPS_FIRST = {"not_met": 0, "partial": 1, "met": 2}
 COLORS = {"apply_now": 0x2ECC71, "maybe": 0xF1C40F}  # green, amber
 GRAY = 0x95A5A6  # not analyzed or restored (no score)
+APPLIED_EMOJI = "🍀"
 
 # Common openings that add length but no meaning
 _LEAD_INS = re.compile(
@@ -20,6 +21,12 @@ _LEAD_INS = re.compile(
     r"excellent|proficiency (in|with)|knowledge of|demonstrated|ability to)\s*",
     re.IGNORECASE,
 )
+
+
+def _check(response: httpx.Response) -> None:
+    """Like raise_for_status, but includes Discord's explanation of what was wrong."""
+    if response.is_error:
+        raise RuntimeError(f"Discord said {response.status_code}: {response.text[:300]}")
 
 
 def short_label(job: Job, max_len: int = 70) -> str:
@@ -67,6 +74,16 @@ def requirement_fields(requirements: list) -> list[dict]:
     return fields
 
 
+def applied_components(job_key: str, applied_on: str | None = None) -> list[dict]:
+    """The 🍀 Applied button under an alert. Greyed out once clicked."""
+    if len(job_key) > 92:  # Discord limits a button's ID to 100 characters
+        return []
+    label = f"{APPLIED_EMOJI} Applied {applied_on}" if applied_on else "Apply"
+    button = {"type": 2, "style": 3, "custom_id": f"applied:{job_key}",  # style 3 = green
+              "label": label, "disabled": bool(applied_on)}
+    return [{"type": 1, "components": [button]}]  # type 1 = a row holding the button
+
+
 def build_message(job: Job, channel: str, reason: str, role_id: str,
                   tags: list[str] | None = None, score: float | None = None,
                   requirements: list | None = None) -> dict:
@@ -103,15 +120,20 @@ def build_message(job: Job, channel: str, reason: str, role_id: str,
                 "fields": requirement_fields(requirements or []),
             }
         ],
+        "components": applied_components(job.key) if ping else [],
     }
 
 
 def send(job: Job, channel: str, reason: str, tags: list[str] | None = None,
          score: float | None = None, requirements: list | None = None) -> None:
-    """Posts a job alert to the channel's webhook."""
+    """Posts a job alert. If Discord refuses the button, the alert still goes out without it."""
     message = build_message(job, channel, reason, config.role_id(), tags, score, requirements)
-    response = httpx.post(config.webhook_url(channel), json=message, timeout=10)
-    response.raise_for_status()
+    url = config.webhook_url(channel)
+    response = httpx.post(url + "?with_components=true", json=message, timeout=10)
+    if response.status_code == 400 and message.get("components"):
+        message = {**message, "components": []}
+        response = httpx.post(url, json=message, timeout=10)
+    _check(response)
 
 
 def build_copy_note(job: Job) -> dict:

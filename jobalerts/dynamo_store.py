@@ -17,6 +17,7 @@ class DynamoStore:
         self.fingerprints = db.Table(f"{prefix}-seen-fingerprints")
         self.decisions = db.Table(f"{prefix}-decisions")
         self.usage = db.Table(f"{prefix}-usage")
+        self.applied = db.Table(f"{prefix}-applied")
 
     # --- Seen keys ---
     def has_key(self, key: str) -> bool:
@@ -124,3 +125,22 @@ class DynamoStore:
         with self.keys.batch_writer(overwrite_by_pkeys=["job_key"]) as batch:
             for key in keys:
                 batch.put_item(Item={"job_key": key})
+
+    def mark_applied(self, title_key: str, job_key: str) -> bool:
+        """Records an application the first time only. Returns True if it was new."""
+        try:
+            self.applied.put_item(
+                Item={"title_key": title_key, "job_key": job_key,
+                      "applied_at": datetime.now(timezone.utc).isoformat()},
+                ConditionExpression="attribute_not_exists(title_key)",
+            )
+            return True
+        except self.applied.meta.client.exceptions.ConditionalCheckFailedException:
+            return False
+
+    def applied_at(self, title_key: str) -> str | None:
+        item = self.applied.get_item(Key={"title_key": title_key}).get("Item")
+        return item["applied_at"] if item else None
+
+    def decision_for(self, key: str) -> dict | None:
+        return self.decisions.get_item(Key={"job_key": key}).get("Item")

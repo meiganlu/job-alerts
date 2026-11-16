@@ -11,13 +11,15 @@ from zoneinfo import ZoneInfo
 from jobalerts import notifier
 from jobalerts.companies import company_id, companies_table, load_all
 from jobalerts.decide import RULES, Decision, decide
-from jobalerts.dedupe import fingerprint, split_new
+from jobalerts.dedupe import fingerprint, split_new, title_key
 from jobalerts.extract import extract, verify
 from jobalerts.fetcher import fetch_all
 from jobalerts.filters import is_bay_area, is_early_career
 from jobalerts.models import Job
 from jobalerts.precheck import obvious_years_required
 from jobalerts.sources import greenhouse
+from jobalerts.notifier import APPLIED_EMOJI
+
 
 ALERT_CHANNELS = {"apply_now", "maybe"}
 DAILY_LLM_LIMIT = int(os.getenv("DAILY_LLM_LIMIT", "50"))
@@ -66,9 +68,18 @@ def fill_description(job: Job) -> None:
             print(f"! no description for {job.title} @ {job.company}: {error}")
 
 
+def applied_tag(job: Job, store) -> list[str]:
+    """'🍀 You applied to a similar role on Nov 3', only if you clicked Applied before."""
+    when = store.applied_at(title_key(job))
+    if not when:
+        return []
+    day = datetime.fromisoformat(when).astimezone(ZoneInfo("America/Los_Angeles")).strftime("%b %-d")
+    return [f"{APPLIED_EMOJI} You applied to a similar role on {day}"]
+
+
 def send_not_analyzed(job: Job, store) -> None:
     """Over budget: alert right away without the LLM, so nothing is delayed or lost."""
-    tags = ["⭐ Bay Area"] if is_bay_area(job.location) else []
+    tags = (["⭐ Bay Area"] if is_bay_area(job.location) else []) + applied_tag(job, store)
     decision = Decision(channel="maybe", reason=NOT_ANALYZED, tags=tags)
     store.save_decision(job, decision)
     notifier.send(job, "maybe", decision.reason, decision.tags)
@@ -95,6 +106,8 @@ def process(job: Job, store, counts: Counter) -> bool:
         counts["llm_errors"] += 1
         return False
     decision = decide(facts, job)
+    if decision.channel in ALERT_CHANNELS:
+        decision.tags += applied_tag(job, store)
     store.save_decision(job, decision)
     if decision.channel in ALERT_CHANNELS:
         notifier.send(job, decision.channel, decision.reason, decision.tags,

@@ -5,7 +5,7 @@ import boto3
 from dotenv import load_dotenv
 from functools import lru_cache
 
-load_dotenv()
+load_dotenv(override=True)  # .env always wins over values left in Terminal
 
 SSM_PREFIX = "/job-alerts/" # every secret is stored as /job-alerts/<NAME>
 CHANNELS = {
@@ -48,6 +48,7 @@ def aws_region() -> str:
 
 def bedrock_model_id() -> str:
     return _require("BEDROCK_MODEL_ID")
+
 
 def discord_public_key() -> str:
     return _require("DISCORD_PUBLIC_KEY")

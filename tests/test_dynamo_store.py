@@ -17,7 +17,7 @@ def store(monkeypatch):
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
     with mock_aws():
         db = boto3.resource("dynamodb", region_name="us-west-2")
-        for name, key in [("seen-keys", "job_key"), ("seen-fingerprints", "fingerprint")]:
+        for name, key in [("seen-keys", "job_key"), ("seen-fingerprints", "fingerprint"), ("applied", "title_key")]:
             db.create_table(
                 TableName=f"test-{name}",
                 KeySchema=[{"AttributeName": key, "KeyType": "HASH"}],

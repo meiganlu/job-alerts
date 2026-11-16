@@ -40,3 +40,14 @@ def test_add_keys():
     store = SeenStore(":memory:")
     store.add_keys(["a", "b", "a"])
     assert store.has_key("a") and store.has_key("b")
+
+
+def test_applied_tag_on_similar_title():
+    from jobalerts.dedupe import title_key
+    from jobalerts.pipeline import applied_tag
+    store = SeenStore(":memory:")
+    nyc = JOB.model_copy(update={"title": "Software Engineer (NYC)"})
+    sf = JOB.model_copy(update={"job_id": "2", "title": "Software Engineer (SF)"})
+    assert applied_tag(sf, store) == []
+    store.mark_applied(title_key(nyc), nyc.key)
+    assert applied_tag(sf, store)[0].startswith("🍀 You applied to a similar role on")

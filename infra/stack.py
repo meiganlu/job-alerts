@@ -68,6 +68,9 @@ class JobAlertsStack(cdk.Stack):
             ),
         )
 
+        # What I clicked applied on, by company + title
+        self.applied = self._table("Applied", "applied", "title_key", on_demand=True)
+
         # --- Lambda 1: the poller (full pipeline) ---
         self.poller = self._function(
             "Poller", "job-alerts-poller", "jobalerts.handler.poll",
@@ -78,7 +81,7 @@ class JobAlertsStack(cdk.Stack):
                 "DAILY_LLM_LIMIT": "50",
             },
         )
-        for table in (self.seen_keys, self.seen_fingerprints, self.decisions, self.usage, self.companies):
+        for table in (self.seen_keys, self.seen_fingerprints, self.decisions, self.usage, self.companies, self.applied):
             table.grant_read_write_data(self.poller)
         self._grant_secrets(self.poller)
         self.poller.add_to_role_policy(iam.PolicyStatement(
@@ -104,6 +107,7 @@ class JobAlertsStack(cdk.Stack):
             environment={"DISCORD_PUBLIC_KEY": ENV["DISCORD_PUBLIC_KEY"]},
         )
         self.decisions.grant_read_write_data(self.discord_bot)
+        self.applied.grant_read_write_data(self.discord_bot)
         self._grant_secrets(self.discord_bot)
         self.discord_bot.add_to_role_policy(iam.PolicyStatement(
             actions=["lambda:InvokeFunction"],  # to start its own background step

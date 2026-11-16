@@ -85,3 +85,10 @@ def test_short_locations():
 def test_stripe_color_by_channel():
     assert build_message(JOB, "apply_now", "x", "123", score=0.9)["embeds"][0]["color"] == 0x2ECC71
     assert build_message(JOB, "maybe", "⚡ Not analyzed", "123")["embeds"][0]["color"] == 0x95A5A6
+
+
+def test_alert_has_applied_button():
+    button = build_message(JOB, "apply_now", "x", "123")["components"][0]["components"][0]
+    assert button["custom_id"] == f"applied:{JOB.key}"
+    assert build_message(JOB, "filtered_out", "x", "123")["components"] == []
+    assert button["label"] == "Apply"

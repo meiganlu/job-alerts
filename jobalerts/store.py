@@ -20,6 +20,8 @@ class SeenStore:
             "tags TEXT, decided_at TEXT)"
         )
         self.db.execute("CREATE TABLE IF NOT EXISTS usage (counter_id TEXT PRIMARY KEY, calls INTEGER)")
+        self.db.execute("CREATE TABLE IF NOT EXISTS applied "
+            "(title_key TEXT PRIMARY KEY, job_key TEXT, applied_at TEXT)")
 
     def has_key(self, key: str) -> bool:
         row = self.db.execute("SELECT 1 FROM seen_keys WHERE key = ?", (key,)).fetchone()
@@ -91,3 +93,19 @@ class SeenStore:
 
     def add_keys(self, keys: list[str]) -> None:
         self.db.executemany("INSERT OR IGNORE INTO seen_keys VALUES (?)", [(key,) for key in keys])
+
+    def mark_applied(self, title_key: str, job_key: str) -> bool:
+        """Records an application the first time only. Returns True if it was new."""
+        cursor = self.db.execute("INSERT OR IGNORE INTO applied VALUES (?, ?, ?)",
+                                 (title_key, job_key, datetime.now(timezone.utc).isoformat()))
+        return cursor.rowcount == 1
+
+    def applied_at(self, title_key: str) -> str | None:
+        row = self.db.execute("SELECT applied_at FROM applied WHERE title_key = ?",
+                              (title_key,)).fetchone()
+        return row[0] if row else None
+
+    def decision_for(self, key: str) -> dict | None:
+        row = self.db.execute("SELECT company, title FROM decisions WHERE key = ?",
+                              (key,)).fetchone()
+        return {"company": row[0], "title": row[1]} if row else None

@@ -53,10 +53,10 @@ def discord(event, context):
     if "discord_work" in event:
         interaction = event["discord_work"]
         try:
-            text = discord_bot.run_command(interaction)
+            discord_bot.run(interaction)
         except Exception as error:
-            text = f"⚠️ Something went wrong: {type(error).__name__}: {str(error)[:200]}"
-        discord_bot.finish(interaction, text)
+            discord_bot.report_error(
+                interaction, f"⚠️ Something went wrong: {type(error).__name__}: {str(error)[:200]}")
         return {"ok": True}
 
     def start_work(interaction):

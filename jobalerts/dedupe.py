@@ -36,3 +36,12 @@ def split_new(jobs: list[Job], store: SeenStore) -> tuple[list[Job], list[tuple[
             new_jobs.append(job)
     store.save()
     return new_jobs, copies
+
+
+def title_key_of(company: str, title: str) -> str:
+    """Company + title, ignoring parentheses: '(NYC)' and '(SF)' versions match."""
+    return f"{_clean(company)}|{_clean(re.sub(r'\([^)]*\)', '', title))}"
+
+
+def title_key(job: Job) -> str:
+    return title_key_of(job.company, job.title)
