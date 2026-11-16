@@ -81,3 +81,9 @@ def test_mid_level_goes_to_digest():  # like Affirm CIAM
     decision = decide(facts, job())
     assert decision.channel == "digest"
     assert "mid-level" in decision.reason
+
+
+def test_masters_required_goes_to_digest():  # like Genspark
+    facts = Extraction(min_degree_required="masters",
+                       degree_quote="require Master's degree", requirements=reqs("met"))
+    assert decide(facts, job()).channel == "digest"

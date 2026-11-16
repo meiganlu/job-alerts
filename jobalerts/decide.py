@@ -74,6 +74,10 @@ def decide(facts: Extraction, job: Job) -> Decision:
     if facts.seniority in ("mid", "senior"):
         return Decision(channel="digest", score=score, tags=tags,
                         reason=f'{facts.seniority}-level role: "{facts.seniority_quote}"')
+    if facts.min_degree_required in ("masters", "phd"):
+        degree = "Master's" if facts.min_degree_required == "masters" else "PhD"
+        return Decision(channel="digest", score=score, tags=tags,
+                        reason=f'{degree} required: "{facts.degree_quote}"')
     if facts.domain in RULES["drop_domains"]:
         return Decision(channel="drop", score=score, tags=tags,
                         reason=f'{facts.domain} role: "{facts.domain_quote}"')

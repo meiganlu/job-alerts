@@ -17,3 +17,8 @@ def test_ambiguous_wording_is_left_to_the_llm():
 def test_preferred_section_is_skipped():
     text = "Minimum Qualifications\n- BS in CS\nPreferred Qualifications\n- 5+ years of experience"
     assert obvious_years_required(text) is None
+
+
+def test_minimum_wording_counts_inside_soft_section():
+    text = "Ideal Candidate\n- Minimum 5 years of experience"
+    assert obvious_years_required(text)[0] == 5

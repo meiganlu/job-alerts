@@ -24,7 +24,7 @@ US_MARKERS = _word_pattern(CRITERIA["us_markers"])
 US_STATE_CODES = re.compile(
     rf",\s*(?:{'|'.join(CRITERIA['us_state_codes'])})(?!\w)", re.IGNORECASE
 )
-NON_US_MARKERS = _word_pattern(CRITERIA["non_us_markers"])
+NON_US_MARKERS = _word_pattern(CRITERIA["non_us_markers"] + CRITERIA.get("non_us_countries", []))
 BAY_AREA = _word_pattern(CRITERIA["bay_area"])
 EARLY_CAREER = _word_pattern(CRITERIA["early_career"])
 LEVEL_I = _word_pattern(["i"])

@@ -31,6 +31,10 @@ Rules:
 - seniority: "mid" or "senior" ONLY if the posting explicitly describes the role's level
   that way (e.g. "mid-level engineer", "senior-level"); "entry" if it says new grad,
   entry-level, or early career; otherwise "unspecified". Quote the words in seniority_quote.
+- min_degree_required: the LOWEST degree that satisfies the requirements, counting every
+  alternative ("Bachelor's + 2 years OR Master's" -> "bachelors"; "Master's or equivalent
+  experience" -> "none"). One of "none", "bachelors", "masters", "phd". Quote the wording in
+  degree_quote.
 - requirements: list EVERY qualification in the posting's requirements sections (often
   titled "Requirements", "Qualifications", "What you'll need", "Who you are", "Preferred",
   "Nice to have"). Do NOT include job duties or responsibilities (sections like "What
@@ -73,6 +77,8 @@ class Extraction(BaseModel):
     seniority: Literal["entry", "mid", "senior", "unspecified"] = "unspecified"
     seniority_quote: str = ""
     requirements: list[Requirement] = []
+    min_degree_required: Literal["none", "bachelors", "masters", "phd"] = "none"
+    degree_quote: str = ""
 
 
 def build_prompt(job: Job) -> str:
@@ -159,6 +165,8 @@ def verify(facts: Extraction, job: Job) -> Extraction:
     if checked.seniority != "unspecified" and not quote_found(checked.seniority_quote, posting):
         checked.seniority = "unspecified"
     checked.requirements = [r for r in checked.requirements if quote_found(r.requirement, posting)]
+    if checked.min_degree_required != "none" and not quote_found(checked.degree_quote, posting):
+        checked.min_degree_required = "none"
 
     # A range like "2–4 years" means 2: always use the smallest number in the verified quote
     for field in ("years_required", "years_preferred"):

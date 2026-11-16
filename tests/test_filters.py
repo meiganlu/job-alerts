@@ -58,6 +58,9 @@ def test_locations_kept():
     assert location_in_scope("")
     assert location_in_scope("Vancouver, WA")
     assert location_in_scope("Remote")
+    assert location_in_scope("Atlanta, Georgia")
+    assert location_in_scope("Santa Fe, New Mexico")
+    assert location_in_scope("Jersey City, NJ")
 
 
 def test_locations_dropped():
@@ -67,6 +70,7 @@ def test_locations_dropped():
     assert not location_in_scope("Bengaluru, India")
     assert not location_in_scope("Remote - UK or Ireland")  # the "or" bug
     assert not location_in_scope("Vancouver, BC")
+    assert not location_in_scope("Remote - Kenya")
 
 
 def test_bay_area():
