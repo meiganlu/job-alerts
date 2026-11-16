@@ -16,13 +16,19 @@ SAMPLE = {
             "location": None,
             "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/123",
         },
+        {
+            "id": 456,
+            "title": "Software Engineer",
+            "location": {"name": None},
+            "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/456",
+        },
     ]
 }
 
 
 def test_parses_every_job():
     jobs = parse_jobs(SAMPLE, "affirm")
-    assert len(jobs) == 2
+    assert len(jobs) == 3
 
 
 def test_fills_fields_correctly():

@@ -30,6 +30,7 @@ EARLY_CAREER = _word_pattern(CRITERIA["early_career"])
 LEVEL_I = _word_pattern(["i"])
 LEVEL_II = _word_pattern(["ii"])
 LEVEL_II_ENTRY_COMPANIES = {name.lower() for name in CRITERIA["level_ii_entry_companies"]}
+COMPANY_EXCLUDE = {name.lower() for name in CRITERIA.get("company_exclude", [])}
 
 
 def title_in_scope(title: str) -> bool:
@@ -37,7 +38,7 @@ def title_in_scope(title: str) -> bool:
     for phrase in TITLE_ALLOW:
         # Swap allowed titles for a neutral in-scope word, so "staff" inside
         # "member of technical staff" isn't treated as senior
-        text = text.replace(phrase, "software")
+        text = text.replace(phrase, "software engineer")
     return bool(TITLE_INCLUDE.search(text)) and not TITLE_EXCLUDE.search(text)
 
 
@@ -76,4 +77,6 @@ def level_in_scope(job: Job) -> bool:
 
 
 def passes_rule_filter(job: Job) -> bool:
+    if job.company.lower() in COMPANY_EXCLUDE or job.board.lower() in COMPANY_EXCLUDE:
+        return False
     return title_in_scope(job.title) and level_in_scope(job) and location_in_scope(job.location)

@@ -18,7 +18,7 @@ def parse_jobs(data: dict, token: str) -> list[Job]:
                 board=token,
                 job_id=str(item["id"]),
                 title=item["title"],
-                location=(item.get("location") or {}).get("name", ""),
+                location=(item.get("location") or {}).get("name") or "",
                 url=item["absolute_url"],
                 posted_at=item.get("first_published"),
             )

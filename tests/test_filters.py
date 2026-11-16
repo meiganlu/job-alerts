@@ -15,6 +15,10 @@ def test_titles_kept():
     assert title_in_scope("Member of Technical Staff")
     assert title_in_scope("SWE II, Backend")
     assert title_in_scope("Full-Stack Engineer")
+    assert title_in_scope("Software Quality Engineer")
+    assert title_in_scope("QA Tester")
+    assert title_in_scope("Test Automation Engineer")
+    assert title_in_scope("Distributed Systems Engineer")
 
 
 def test_titles_dropped():
@@ -31,6 +35,14 @@ def test_titles_dropped():
     assert not title_in_scope("Senior Member of Technical Staff")  # still senior
     assert not title_in_scope("iOS Engineer")
     assert not title_in_scope("Software Engineer, Mobile (App Infrastructure)")
+    assert not title_in_scope("Clinical Testing Psychologist")
+    assert not title_in_scope("Account Executive, Software")
+    assert not title_in_scope("Electrical Engineer")
+    assert not title_in_scope("Manufacturing Engineer")
+    assert not title_in_scope("Technical Support Engineer")
+    assert not title_in_scope("Legal Engineer")
+    assert not title_in_scope("Systems Engineer, Avionics")
+    assert not title_in_scope("GNC Engineer")
 
 
 # --- Locations ---

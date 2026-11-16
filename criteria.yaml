@@ -2,22 +2,25 @@
 
 title_allow:
   - member of technical staff
+  - software quality engineer
+  - distributed systems engineer
+  - embedded systems engineer
+  - software systems engineer
 
 title_include:
   - engineer
   - engineering
   - developer
-  - software
   - full stack
-  - full-stack
   - fullstack
+  - full-stack
+  - swe
+  - sde
   - sdet
   - qa
   - quality assurance
-  - test
-  - testing
-  - swe
-  - sde
+  - tester
+  - test automation
 
 title_exclude:
   # clearly senior
@@ -54,6 +57,29 @@ title_exclude:
   # security specialist roles (SWE on security teams still passes)
   - security engineer
   - corpsec
+  # hardware, construction, and IT disciplines
+  - electrical
+  - manufacturing
+  - project engineer
+  - chief engineer
+  - network engineer
+  - quality engineer
+  - hardware engineer
+  - propulsion
+  - avionics
+  - rf
+  - process engineer
+  # support and sales-adjacent
+  - technical support
+  - support engineer
+  - gtm
+  # miscellaneous
+  - technician
+  - controls engineer
+  - gnc
+  - systems engineer
+  - system engineer
+  - legal engineer
 
 us_markers: [united states, usa, us, u.s., americas, north america,
   alabama, alaska, arizona, arkansas, california, colorado, connecticut,
@@ -97,3 +123,6 @@ early_career: [new grad, new graduate, early career, university, entry level,
   entry-level, junior, graduate]
 
 level_ii_entry_companies: [google]
+
+# Companies never alerted on (aggregators that repost other companies' jobs, etc.)
+company_exclude: [jobgether]
