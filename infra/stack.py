@@ -47,6 +47,16 @@ class JobAlertsStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
 
+        # The company directory: ~10k boards to watch. On-demand billing because the
+        # poller reads the whole table every 15 minutes
+        self.companies = dynamodb.Table(
+            self, "Companies",
+            table_name="job-alerts-companies",
+            partition_key=dynamodb.Attribute(name="company_id", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
         # --- The code bundle (shared by both Lambdas) ---
         self.code = lambda_.Code.from_asset(
             ".",
