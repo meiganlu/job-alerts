@@ -55,3 +55,8 @@ def test_ml_platform_is_not_research():
     job = JOB.model_copy(update={"title": "Software Engineer, Machine Learning Platform"})
     facts = Extraction(domain="ai_research", domain_quote="Machine Learning")
     assert verify(facts, job).domain == "general"
+
+
+def test_unverified_seniority_is_reset():
+    facts = Extraction(seniority="mid", seniority_quote="mid-level engineer")
+    assert verify(facts, JOB).seniority == "unspecified"

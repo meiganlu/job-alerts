@@ -26,3 +26,11 @@ def test_decisions_since_returns_dicts():
     store.save_decision(JOB, Decision(channel="drop", reason="3+ years"))
     rows = store.decisions_since("2000-01-01", ("drop",))
     assert rows[0]["job_key"] == JOB.key
+
+
+def test_daily_llm_budget():
+    store = SeenStore(":memory:")
+    assert store.reserve_llm_call("2026-11-15", limit=2)
+    assert store.reserve_llm_call("2026-11-15", limit=2)
+    assert not store.reserve_llm_call("2026-11-15", limit=2)  # budget used up
+    assert store.reserve_llm_call("2026-11-16", limit=2)      # new day, fresh budget

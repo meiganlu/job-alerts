@@ -1,5 +1,9 @@
 from jobalerts.models import Job
-from jobalerts.notifier import build_message, build_copy_note, short_label, build_text_message
+from jobalerts.notifier import (build_copy_note, build_message, build_text_message,
+    requirement_fields, short_label, short_locations,
+    short_requirement)
+from jobalerts.extract import Requirement
+
 
 JOB = Job(
     source="greenhouse",
@@ -23,14 +27,6 @@ def test_filtered_out_is_silent():
     assert message["allowed_mentions"] == {"roles": []}
 
 
-def test_score_and_tags_are_shown():
-    message = build_message(JOB, "apply_now", "meets 83%", role_id="123",
-                            tags=["⭐ Bay Area"], score=0.83)
-    embed = message["embeds"][0]
-    assert "⭐ Bay Area" in embed["description"]
-    assert {"name": "Score", "value": "83%", "inline": True} in embed["fields"]
-
-
 def test_copy_note_never_pings():
     assert build_copy_note(JOB)["allowed_mentions"] == {"parse": []}
 
@@ -49,3 +45,43 @@ def test_text_message_pings_only_when_asked():
 
     quiet = build_text_message("digest")
     assert quiet["allowed_mentions"] == {"parse": []}
+
+
+def test_meta_line_replaces_score_and_location_fields():
+    message = build_message(JOB, "apply_now", "meets 83% of required qualifications",
+                            role_id="123", tags=["⭐ Bay Area", "🔒 clearance sponsored"], score=0.83)
+    description = message["embeds"][0]["description"]
+    assert description.startswith("83% match · 📍 Remote US ⭐")
+    assert "meets 83%" not in description          # no repeated score
+    assert "🔒 clearance sponsored" in description  # other tags still shown
+
+
+def test_requirement_blocks_gaps_first():
+    fields = requirement_fields([
+        Requirement(requirement="Python", importance="required", kind="hard", status="met"),
+        Requirement(requirement="Java backend", importance="required", kind="hard", status="not_met"),
+        Requirement(requirement="Kubernetes", importance="preferred", kind="hard", status="partial"),
+        Requirement(requirement="Curiosity", importance="required", kind="soft", status="met"),
+    ])
+    assert [field["name"] for field in fields] == ["Required", "Preferred", "Soft skills"]
+    assert fields[0]["value"] == "🚩 Java backend\n🌿 Python"
+
+
+def test_short_requirement():
+    assert short_requirement("Working knowledge of SQL, Python, or other scripting languages.") \
+        == "SQL, Python, or other scripting languages"
+    cut = short_requirement("Familiarity with data mining, data visualization, and "
+                            "foundational statistical modeling")
+    assert cut == "Data mining, data visualization, and…"
+
+
+def test_short_locations():
+    assert short_locations("New York, New York, United States; "
+                           "San Francisco, California, United States") == "San Francisco · New York"
+    assert short_locations("Bellevue, WA; Mountain View, CA; San Francisco, CA; Vancouver, BC") \
+        == "Mountain View · San Francisco +2"
+
+
+def test_stripe_color_by_channel():
+    assert build_message(JOB, "apply_now", "x", "123", score=0.9)["embeds"][0]["color"] == 0x2ECC71
+    assert build_message(JOB, "maybe", "⚡ Not analyzed", "123")["embeds"][0]["color"] == 0x95A5A6

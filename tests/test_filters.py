@@ -1,4 +1,6 @@
 from jobalerts.filters import is_bay_area, location_in_scope, title_in_scope
+from jobalerts.filters import passes_rule_filter
+from jobalerts.models import Job
 
 
 # --- Titles ---
@@ -58,3 +60,16 @@ def test_locations_dropped():
 def test_bay_area():
     assert is_bay_area("San Jose, California, USA")
     assert not is_bay_area("Remote US")
+
+
+def job_titled(title, company="Affirm"):
+    return Job(source="greenhouse", company=company, board=company.lower(), job_id="1",
+               title=title, location="Remote US", url="https://example.com/1")
+
+
+def test_level_rules():
+    assert not passes_rule_filter(job_titled("Software Engineer II - CIAM"))       # mid-level
+    assert passes_rule_filter(job_titled("Software Engineer II, Early Career"))    # early-career
+    assert passes_rule_filter(job_titled("Software Engineer I/II"))                # combined
+    assert passes_rule_filter(job_titled("Software Engineer II", company="Google"))  # entry at Google
+    assert not passes_rule_filter(job_titled("Software Engineer III"))

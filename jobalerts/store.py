@@ -19,6 +19,7 @@ class SeenStore:
             "title TEXT, url TEXT, location TEXT, channel TEXT, reason TEXT, score REAL, "
             "tags TEXT, decided_at TEXT)"
         )
+        self.db.execute("CREATE TABLE IF NOT EXISTS usage (counter_id TEXT PRIMARY KEY, calls INTEGER)")
 
     def has_key(self, key: str) -> bool:
         row = self.db.execute("SELECT 1 FROM seen_keys WHERE key = ?", (key,)).fetchone()
@@ -74,3 +75,16 @@ class SeenStore:
 
     def set_channel(self, key: str, channel: str) -> None:
         self.db.execute("UPDATE decisions SET channel = ? WHERE key = ?", (channel, key))
+
+    def reserve_llm_call(self, day: str, limit: int) -> bool:
+        """Counts one LLM call for `day`. Returns False if the day's budget is used up."""
+        counter_id = f"llm-calls#{day}"
+        row = self.db.execute("SELECT calls FROM usage WHERE counter_id = ?", (counter_id,)).fetchone()
+        if row and row[0] >= limit:
+            return False
+        self.db.execute(
+            "INSERT INTO usage VALUES (?, 1) "
+            "ON CONFLICT(counter_id) DO UPDATE SET calls = calls + 1",
+            (counter_id,),
+        )
+        return True

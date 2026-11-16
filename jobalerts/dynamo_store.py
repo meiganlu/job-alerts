@@ -16,6 +16,7 @@ class DynamoStore:
         self.keys = db.Table(f"{prefix}-seen-keys")
         self.fingerprints = db.Table(f"{prefix}-seen-fingerprints")
         self.decisions = db.Table(f"{prefix}-decisions")
+        self.usage = db.Table(f"{prefix}-usage")
 
     # --- Seen keys ---
     def has_key(self, key: str) -> bool:
@@ -103,3 +104,17 @@ class DynamoStore:
                 kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
             day += timedelta(days=1)
         return results
+
+    def reserve_llm_call(self, day: str, limit: int) -> bool:
+        """Counts one LLM call for `day`. Returns False if the day's budget is used up.
+        One atomic update, so two runs at once can never both take the last call."""
+        try:
+            self.usage.update_item(
+                Key={"counter_id": f"llm-calls#{day}"},
+                UpdateExpression="ADD calls :one",
+                ConditionExpression="attribute_not_exists(calls) OR calls < :limit",
+                ExpressionAttributeValues={":one": 1, ":limit": limit},
+            )
+            return True
+        except self.usage.meta.client.exceptions.ConditionalCheckFailedException:
+            return False

@@ -26,6 +26,10 @@ US_STATE_CODES = re.compile(
 )
 NON_US_MARKERS = _word_pattern(CRITERIA["non_us_markers"])
 BAY_AREA = _word_pattern(CRITERIA["bay_area"])
+EARLY_CAREER = _word_pattern(CRITERIA["early_career"])
+LEVEL_I = _word_pattern(["i"])
+LEVEL_II = _word_pattern(["ii"])
+LEVEL_II_ENTRY_COMPANIES = {name.lower() for name in CRITERIA["level_ii_entry_companies"]}
 
 
 def title_in_scope(title: str) -> bool:
@@ -55,5 +59,21 @@ def is_bay_area(location: str) -> bool:
     return bool(BAY_AREA.search(location))
 
 
+def is_early_career(title: str) -> bool:
+    return bool(EARLY_CAREER.search(title))
+
+
+def level_in_scope(job: Job) -> bool:
+    """'II' titles are kept only if early-career, a combined 'I/II' posting, or at a company where II is the entry level."""
+    if not LEVEL_II.search(job.title):
+        return True
+    return bool(
+        LEVEL_I.search(job.title)
+        or is_early_career(job.title)
+        or job.company.lower() in LEVEL_II_ENTRY_COMPANIES
+        or job.board.lower() in LEVEL_II_ENTRY_COMPANIES
+    )
+
+
 def passes_rule_filter(job: Job) -> bool:
-    return title_in_scope(job.title) and location_in_scope(job.location)
+    return title_in_scope(job.title) and level_in_scope(job) and location_in_scope(job.location)

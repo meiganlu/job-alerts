@@ -2,6 +2,7 @@
 from typing import Literal
 
 from pydantic import BaseModel
+from datetime import datetime
 
 from jobalerts.extract import Extraction
 from jobalerts.filters import CRITERIA, is_bay_area
@@ -37,6 +38,22 @@ def grad_fits(facts: Extraction, graduation: str) -> bool:
     return True
 
 
+def _month(year_month: str | None) -> str | None:
+    """'2026-09' → 'Sep 2026'. Leaves anything unexpected as it was."""
+    if not year_month:
+        return None
+    try:
+        return datetime.strptime(year_month, "%Y-%m").strftime("%b %Y")
+    except ValueError:
+        return year_month
+
+
+def grad_window_tag(facts: Extraction) -> str:
+    start, end = _month(facts.grad_start), _month(facts.grad_end)
+    window = f"{start} – {end}" if start and end else (f"by {end}" if end else f"from {start}")
+    return f"⚠️ For {window} grads"
+
+
 def decide(facts: Extraction, job: Job) -> Decision:
     score = qualification_score(facts)
 
@@ -44,7 +61,7 @@ def decide(facts: Extraction, job: Job) -> Decision:
     if is_bay_area(job.location):
         tags.append("⭐ Bay Area")
     if not grad_fits(facts, RULES["graduation"]):
-        tags.append(f"⚠️ grad window: {facts.grad_start or 'any'} to {facts.grad_end or 'any'}")
+        tags.append(grad_window_tag(facts))
     if facts.clearance == "obtainable":
         tags.append("🔒 clearance sponsored")
     if facts.domain == "ai_research":
@@ -54,6 +71,9 @@ def decide(facts: Extraction, job: Job) -> Decision:
     if facts.years_required is not None and facts.years_required > RULES["max_years_required"]:
         return Decision(channel="drop", score=score, tags=tags,
                         reason=f'{facts.years_required}+ years required: "{facts.years_required_quote}"')
+    if facts.seniority in ("mid", "senior"):
+        return Decision(channel="digest", score=score, tags=tags,
+                        reason=f'{facts.seniority}-level role: "{facts.seniority_quote}"')
     if facts.domain in RULES["drop_domains"]:
         return Decision(channel="drop", score=score, tags=tags,
                         reason=f'{facts.domain} role: "{facts.domain_quote}"')

@@ -21,6 +21,8 @@ title_include:
 
 title_exclude:
   # clearly senior
+  - iii
+  - iv
   - senior
   - sr
   - staff
@@ -90,3 +92,8 @@ decision:
   apply_now_score: 0.5             # 50%+ of required hard skills = #apply-now
   maybe_score: 0.25                # 25-50% = #maybe; any below = digest
   drop_domains: [mobile]
+
+early_career: [new grad, new graduate, early career, university, entry level,
+  entry-level, junior, graduate]
+
+level_ii_entry_companies: [google]

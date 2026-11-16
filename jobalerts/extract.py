@@ -28,6 +28,9 @@ Rules:
   infrastructure or platforms is "general". Otherwise "general".
 - clearance: "active_required" only if an ACTIVE clearance is required, "obtainable" if the
   candidate must be able to obtain one, otherwise "none".
+- seniority: "mid" or "senior" ONLY if the posting explicitly describes the role's level
+  that way (e.g. "mid-level engineer", "senior-level"); "entry" if it says new grad,
+  entry-level, or early career; otherwise "unspecified". Quote the words in seniority_quote.
 - requirements: list EVERY qualification in the posting's requirements sections (often
   titled "Requirements", "Qualifications", "What you'll need", "Who you are", "Preferred",
   "Nice to have"). Do NOT include job duties or responsibilities (sections like "What
@@ -69,6 +72,8 @@ class Extraction(BaseModel):
     domain_quote: str = ""
     clearance: Literal["none", "obtainable", "active_required"] = "none"
     clearance_quote: str = ""
+    seniority: Literal["entry", "mid", "senior", "unspecified"] = "unspecified"
+    seniority_quote: str = ""
     requirements: list[Requirement] = []
 
 
@@ -153,5 +158,7 @@ def verify(facts: Extraction, job: Job) -> Extraction:
         checked.domain = "general"
     if checked.clearance != "none" and not quote_found(checked.clearance_quote, posting):
         checked.clearance = "none"
+    if checked.seniority != "unspecified" and not quote_found(checked.seniority_quote, posting):
+        checked.seniority = "unspecified"
     checked.requirements = [r for r in checked.requirements if quote_found(r.requirement, posting)]
     return checked

@@ -38,6 +38,14 @@ class JobAlertsStack(cdk.Stack):
             read_capacity=5,
             write_capacity=5,
         )
+        # Daily LLM call counter (the budget)
+        self.usage = dynamodb.Table(
+            self, "Usage",
+            table_name="job-alerts-usage",
+            partition_key=dynamodb.Attribute(name="counter_id", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
 
         # --- The code bundle (shared by both Lambdas) ---
         self.code = lambda_.Code.from_asset(
@@ -54,9 +62,13 @@ class JobAlertsStack(cdk.Stack):
         self.poller = self._function(
             "Poller", "job-alerts-poller", "jobalerts.handler.poll",
             timeout=cdk.Duration.minutes(10),
-            environment={"BEDROCK_MODEL_ID": ENV["BEDROCK_MODEL_ID"], "LLM_LIMIT": "25"},
+            environment={
+                "BEDROCK_MODEL_ID": ENV["BEDROCK_MODEL_ID"],
+                "LLM_LIMIT": "25",
+                "DAILY_LLM_LIMIT": "50",
+            },
         )
-        for table in (self.seen_keys, self.seen_fingerprints, self.decisions):
+        for table in (self.seen_keys, self.seen_fingerprints, self.decisions, self.usage):
             table.grant_read_write_data(self.poller)
         self._grant_secrets(self.poller)
         self.poller.add_to_role_policy(iam.PolicyStatement(

@@ -40,6 +40,12 @@ def store(monkeypatch):
             }],
             BillingMode="PAY_PER_REQUEST",
         )
+        db.create_table(
+            TableName="test-usage",
+            KeySchema=[{"AttributeName": "counter_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "counter_id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
         yield DynamoStore(prefix="test")
 
 
@@ -76,3 +82,8 @@ def test_forget(store):
     split_new([job], store)
     store.forget(job.key)
     assert not store.has_key(job.key)
+
+
+def test_daily_llm_budget_dynamo(store):
+    assert store.reserve_llm_call("2026-11-15", limit=1)
+    assert not store.reserve_llm_call("2026-11-15", limit=1)

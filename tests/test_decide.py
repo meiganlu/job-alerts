@@ -59,8 +59,9 @@ def test_no_requirements_is_maybe():
 def test_grad_window_tag():
     outside = Extraction(grad_start="2026-09", grad_end="2027-06", grad_quote="x", requirements=reqs("met"))
     inside = Extraction(grad_end="2027-08", grad_quote="x", requirements=reqs("met"))  # like Affirm
-    assert any("grad window" in t for t in decide(outside, job()).tags)
-    assert not any("grad window" in t for t in decide(inside, job()).tags)
+    assert any("grads" in t for t in decide(outside, job()).tags)
+    assert not any("grads" in t for t in decide(inside, job()).tags)
+    assert "⚠️ For Sep 2026 – Jun 2027 grads" in decide(outside, job()).tags
 
 
 def test_bay_area_tag():
@@ -73,3 +74,10 @@ def test_research_role_is_scored_not_dropped():
     decision = decide(facts, job())
     assert decision.channel == "maybe"  # 33% → #maybe, not dropped
     assert "🔬 research role" in decision.tags
+
+
+def test_mid_level_goes_to_digest():  # like Affirm CIAM
+    facts = Extraction(seniority="mid", seniority_quote="mid-level engineer", requirements=reqs("met"))
+    decision = decide(facts, job())
+    assert decision.channel == "digest"
+    assert "mid-level" in decision.reason

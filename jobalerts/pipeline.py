@@ -1,26 +1,43 @@
-"""Runs the whole job-alert pipeline:
+"""Runs the whole job-alert pipeline once:
 fetch → rule filter → dedupe → description → extract → verify → decide → notify."""
+import os
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import yaml
 
 from jobalerts import notifier
-from jobalerts.decide import decide
-from jobalerts.dedupe import split_new, fingerprint
+from jobalerts.decide import Decision, decide
+from jobalerts.dedupe import fingerprint, split_new
 from jobalerts.extract import extract, verify
-from jobalerts.filters import passes_rule_filter
+from jobalerts.filters import is_bay_area, is_early_career, passes_rule_filter
 from jobalerts.models import Job
 from jobalerts.sources import ashby, greenhouse, lever
-from jobalerts.store import SeenStore
 
 COMPANIES_FILE = Path(__file__).parent.parent / "companies.yaml"
 SOURCES = {"greenhouse": greenhouse, "lever": lever, "ashby": ashby}
 ALERT_CHANNELS = {"apply_now", "maybe"}
+DAILY_LLM_LIMIT = int(os.getenv("DAILY_LLM_LIMIT", "50"))
+NOT_ANALYZED = "⚡ Not analyzed: today's LLM budget is used up. Check the posting yourself."
 
 
 def load_companies() -> list[dict]:
     return yaml.safe_load(COMPANIES_FILE.read_text())["companies"]
+
+
+FAVORITES = {(company["source"], company["slug"]) for company in load_companies()}
+
+
+def today_pacific() -> str:
+    """The budget resets at midnight Pacific time."""
+    return datetime.now(ZoneInfo("America/Los_Angeles")).date().isoformat()
+
+
+def priority(job: Job) -> tuple[bool, bool]:
+    """Sort key: early-career titles first, then favorites. (False sorts before True.)"""
+    return (not is_early_career(job.title), (job.source, job.board) not in FAVORITES)
 
 
 def fetch_kept_jobs(counts: Counter) -> list[Job]:
@@ -47,7 +64,15 @@ def fill_description(job: Job) -> None:
             print(f"! no description for {job.title} @ {job.company}: {error}")
 
 
-def run(store: SeenStore, baseline: bool = False, limit: int = 10) -> Counter:
+def send_not_analyzed(job: Job, store) -> None:
+    """Over budget: alert right away without the LLM, so nothing is delayed or lost."""
+    tags = ["⭐ Bay Area"] if is_bay_area(job.location) else []
+    decision = Decision(channel="maybe", reason=NOT_ANALYZED, tags=tags)
+    store.save_decision(job, decision)
+    notifier.send(job, "maybe", decision.reason, decision.tags)
+
+
+def run(store, baseline: bool = False, limit: int = 10) -> Counter:
     counts = Counter()
     kept = fetch_kept_jobs(counts)
 
@@ -59,13 +84,17 @@ def run(store: SeenStore, baseline: bool = False, limit: int = 10) -> Counter:
         counts["marked_seen"] = len(kept)
         return counts
 
-    # Only unseen jobs, capped by the limit; the rest wait for the next run
-    fresh = [job for job in kept if not store.has_key(job.key)][:limit]
+    # Unseen jobs, most important first, capped per run (the rest wait for the next run)
+    fresh = sorted((job for job in kept if not store.has_key(job.key)), key=priority)[:limit]
     for job in fresh:
         fill_description(job)
     new_jobs, copies = split_new(fresh, store)
 
     for job in new_jobs:
+        if not store.reserve_llm_call(today_pacific(), DAILY_LLM_LIMIT):
+            send_not_analyzed(job, store)
+            counts["not_analyzed"] += 1
+            continue
         try:
             facts = verify(extract(job), job)
         except Exception as error:
@@ -76,7 +105,7 @@ def run(store: SeenStore, baseline: bool = False, limit: int = 10) -> Counter:
         decision = decide(facts, job)
         store.save_decision(job, decision)
         if decision.channel in ALERT_CHANNELS:
-            notifier.send(job, decision.channel, decision.reason, decision.tags, decision.score)
+            notifier.send(job, decision.channel, decision.reason, decision.tags, decision.score, facts.requirements)
         counts[decision.channel] += 1
         print(f"{decision.channel:>9}  {job.company}: {job.title}  ({decision.reason})")
 
