@@ -66,3 +66,10 @@ def test_year_range_uses_lower_number():
     job = JOB.model_copy(update={"description": "2–4 years in software QA"})
     facts = Extraction(years_preferred=4, years_preferred_quote="2–4 years in software QA")
     assert verify(facts, job).years_preferred == 2
+
+
+def test_outside_us_quote_can_come_from_location():
+    job = JOB.model_copy(update={"location": "Raanana, Center District"})
+    facts = Extraction(outside_us=True, location_quote="Raanana")
+    assert verify(facts, job).outside_us is True
+    assert verify(Extraction(outside_us=True, location_quote="Tel Aviv"), job).outside_us is False

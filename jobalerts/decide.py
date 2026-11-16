@@ -68,6 +68,9 @@ def decide(facts: Extraction, job: Job) -> Decision:
         tags.append("🔬 research role")
 
     # Hard stops
+    if facts.outside_us:
+        return Decision(channel="drop", score=score, tags=tags,
+                        reason=f'outside the US: "{facts.location_quote}"')
     if facts.years_required is not None and facts.years_required > RULES["max_years_required"]:
         return Decision(channel="drop", score=score, tags=tags,
                         reason=f'{facts.years_required}+ years required: "{facts.years_required_quote}"')

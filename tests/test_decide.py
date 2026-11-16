@@ -87,3 +87,8 @@ def test_masters_required_goes_to_digest():  # like Genspark
     facts = Extraction(min_degree_required="masters",
                        degree_quote="require Master's degree", requirements=reqs("met"))
     assert decide(facts, job()).channel == "digest"
+
+
+def test_outside_us_is_dropped():
+    facts = Extraction(outside_us=True, location_quote="Raanana", requirements=reqs("met"))
+    assert decide(facts, job()).channel == "drop"

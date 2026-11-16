@@ -35,6 +35,10 @@ Rules:
   alternative ("Bachelor's + 2 years OR Master's" -> "bachelors"; "Master's or equivalent
   experience" -> "none"). One of "none", "bachelors", "masters", "phd". Quote the wording in
   degree_quote.
+- outside_us: true ONLY if the job is based outside the United States (a non-US city or
+  country, or it requires living or being authorized to work outside the US) AND the
+  posting offers no US location or US-remote option. Quote the location wording in
+  location_quote (it may come from the Location line).
 - requirements: list EVERY qualification in the posting's requirements sections (often
   titled "Requirements", "Qualifications", "What you'll need", "Who you are", "Preferred",
   "Nice to have"). Do NOT include job duties or responsibilities (sections like "What
@@ -79,6 +83,8 @@ class Extraction(BaseModel):
     requirements: list[Requirement] = []
     min_degree_required: Literal["none", "bachelors", "masters", "phd"] = "none"
     degree_quote: str = ""
+    outside_us: bool = False
+    location_quote: str = ""
 
 
 def build_prompt(job: Job) -> str:
@@ -144,7 +150,7 @@ def quote_found(quote: str, text: str) -> bool:
 
 def verify(facts: Extraction, job: Job) -> Extraction:
     """Returns a copy where any fact without a real quote is reset to its safe default."""
-    posting = f"{job.title}\n{job.description}"
+    posting = f"{job.title}\n{job.location}\n{job.description}"
     checked = facts.model_copy(deep=True)
 
     if checked.years_required is not None and not quote_found(checked.years_required_quote, posting):
@@ -167,6 +173,8 @@ def verify(facts: Extraction, job: Job) -> Extraction:
     checked.requirements = [r for r in checked.requirements if quote_found(r.requirement, posting)]
     if checked.min_degree_required != "none" and not quote_found(checked.degree_quote, posting):
         checked.min_degree_required = "none"
+    if checked.outside_us and not quote_found(checked.location_quote, posting):
+        checked.outside_us = False
 
     # A range like "2–4 years" means 2: always use the smallest number in the verified quote
     for field in ("years_required", "years_preferred"):
