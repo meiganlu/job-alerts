@@ -47,7 +47,6 @@ Rules:
     If a requirement pairs a skill area with a specific language or tool (e.g. "backend
     applications in Java"), and the resume shows that skill area in another language plus
     some exposure to the named one, rate it "partial".
-  - evidence: a reason from the resume in 10 words or fewer.
 - Each *_quote must include the number or date it supports (e.g. "by August 2027").
 - Leave every *_quote field empty ("") when its value is null, "general", or "none"."""
 
@@ -57,7 +56,6 @@ class Requirement(BaseModel):
     importance: Literal["required", "preferred"]
     kind: Literal["hard", "soft"]  # hard = checkable skill/experience; soft = personality/interest
     status: Literal["met", "partial", "not_met"]
-    evidence: str = ""
 
 
 class Extraction(BaseModel):
@@ -161,4 +159,12 @@ def verify(facts: Extraction, job: Job) -> Extraction:
     if checked.seniority != "unspecified" and not quote_found(checked.seniority_quote, posting):
         checked.seniority = "unspecified"
     checked.requirements = [r for r in checked.requirements if quote_found(r.requirement, posting)]
+
+    # A range like "2–4 years" means 2: always use the smallest number in the verified quote
+    for field in ("years_required", "years_preferred"):
+        if getattr(checked, field) is not None:
+            numbers = [int(n) for n in re.findall(r"\d+", getattr(checked, f"{field}_quote"))]
+            if numbers:
+                setattr(checked, field, min(numbers))
+                
     return checked

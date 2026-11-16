@@ -28,8 +28,8 @@ class JobAlertsStack(cdk.Stack):
         cdk.Tags.of(self).add("project", "job-alerts")
 
         # --- Storage (replaces seen.db) ---
-        self.seen_keys = self._table("SeenKeys", "seen-keys", "job_key")
-        self.seen_fingerprints = self._table("SeenFingerprints", "seen-fingerprints", "fingerprint")
+        self.seen_keys = self._table("SeenKeys", "seen-keys", "job_key", on_demand=True)
+        self.seen_fingerprints = self._table("SeenFingerprints", "seen-fingerprints", "fingerprint", on_demand=True)
         self.decisions = self._table("Decisions", "decisions", "job_key")
         self.decisions.add_global_secondary_index(
             index_name="by-day",
@@ -71,14 +71,14 @@ class JobAlertsStack(cdk.Stack):
         # --- Lambda 1: the poller (full pipeline) ---
         self.poller = self._function(
             "Poller", "job-alerts-poller", "jobalerts.handler.poll",
-            timeout=cdk.Duration.minutes(10),
+            timeout=cdk.Duration.minutes(14),
             environment={
                 "BEDROCK_MODEL_ID": ENV["BEDROCK_MODEL_ID"],
                 "LLM_LIMIT": "25",
                 "DAILY_LLM_LIMIT": "50",
             },
         )
-        for table in (self.seen_keys, self.seen_fingerprints, self.decisions, self.usage):
+        for table in (self.seen_keys, self.seen_fingerprints, self.decisions, self.usage, self.companies):
             table.grant_read_write_data(self.poller)
         self._grant_secrets(self.poller)
         self.poller.add_to_role_policy(iam.PolicyStatement(
@@ -140,17 +140,20 @@ class JobAlertsStack(cdk.Stack):
     
     # --- Helper functs ---
 
-    def _table(self, construct_id: str, short_name: str, partition_key: str) -> dynamodb.Table:
-        """A small provisioned table that stays inside DynamoDB's always-free allowance."""
+    def _table(self, construct_id: str, short_name: str, partition_key: str,
+        on_demand: bool = False) -> dynamodb.Table:
+        """A DynamoDB table. Provisioned (free at low, steady traffic) unless on_demand,
+        which handles bursts like the first run's ~14,000 baseline writes."""
+        capacity = {} if on_demand else {"read_capacity": 5, "write_capacity": 5}
         return dynamodb.Table(
             self,
             construct_id,
             table_name=f"job-alerts-{short_name}",
             partition_key=dynamodb.Attribute(name=partition_key, type=dynamodb.AttributeType.STRING),
-            billing_mode=dynamodb.BillingMode.PROVISIONED,
-            read_capacity=5,
-            write_capacity=5,
+            billing_mode=(dynamodb.BillingMode.PAY_PER_REQUEST if on_demand
+                          else dynamodb.BillingMode.PROVISIONED),
             removal_policy=cdk.RemovalPolicy.RETAIN,
+            **capacity,
         )
 
     def _function(self, construct_id: str, name: str, handler: str,
@@ -170,7 +173,7 @@ class JobAlertsStack(cdk.Stack):
             handler=handler,
             code=self.code,
             timeout=timeout,
-            memory_size=512,
+            memory_size=640,
             log_group=log_group,
             environment=environment or {},
             retry_attempts=0,  # a failed run isn't repeated; the next scheduled run picks up

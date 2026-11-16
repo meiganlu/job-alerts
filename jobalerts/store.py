@@ -88,3 +88,6 @@ class SeenStore:
             (counter_id,),
         )
         return True
+
+    def add_keys(self, keys: list[str]) -> None:
+        self.db.executemany("INSERT OR IGNORE INTO seen_keys VALUES (?)", [(key,) for key in keys])

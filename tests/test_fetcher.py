@@ -76,3 +76,10 @@ def test_favorites_load_first():
                               {"company_id": "b", "favorite": True}]}
 
     assert [c["company_id"] for c in load_all(FakeTable())] == ["b", "a"]
+
+
+def test_hash_matches_full_parse():
+    from jobalerts.sources.greenhouse import parse_jobs
+    [result] = fetch([{"ats": "greenhouse", "slug": "acme"}],
+                     lambda request: httpx.Response(200, json=GREENHOUSE))
+    assert result.ids_hash == ids_hash(parse_jobs(GREENHOUSE, "acme"))

@@ -118,3 +118,9 @@ class DynamoStore:
             return True
         except self.usage.meta.client.exceptions.ConditionalCheckFailedException:
             return False
+
+    def add_keys(self, keys: list[str]) -> None:
+        """Writes many keys in batches of 25 (much faster than one at a time)."""
+        with self.keys.batch_writer(overwrite_by_pkeys=["job_key"]) as batch:
+            for key in keys:
+                batch.put_item(Item={"job_key": key})

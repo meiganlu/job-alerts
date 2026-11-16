@@ -60,3 +60,9 @@ def test_ml_platform_is_not_research():
 def test_unverified_seniority_is_reset():
     facts = Extraction(seniority="mid", seniority_quote="mid-level engineer")
     assert verify(facts, JOB).seniority == "unspecified"
+
+
+def test_year_range_uses_lower_number():
+    job = JOB.model_copy(update={"description": "2–4 years in software QA"})
+    facts = Extraction(years_preferred=4, years_preferred_quote="2–4 years in software QA")
+    assert verify(facts, job).years_preferred == 2

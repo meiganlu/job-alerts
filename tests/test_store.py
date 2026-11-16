@@ -34,3 +34,9 @@ def test_daily_llm_budget():
     assert store.reserve_llm_call("2026-11-15", limit=2)
     assert not store.reserve_llm_call("2026-11-15", limit=2)  # budget used up
     assert store.reserve_llm_call("2026-11-16", limit=2)      # new day, fresh budget
+
+
+def test_add_keys():
+    store = SeenStore(":memory:")
+    store.add_keys(["a", "b", "a"])
+    assert store.has_key("a") and store.has_key("b")

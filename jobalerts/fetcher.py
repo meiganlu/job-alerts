@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from jobalerts.filters import passes_rule_filter
+from jobalerts.filters import location_in_scope, passes_rule_filter, title_in_scope
 from jobalerts.models import Job
 from jobalerts.sources import ashby, greenhouse, lever
 
@@ -36,10 +36,37 @@ def board_urls(ats: str, slug: str) -> list[str]:
     raise ValueError(f"Unsupported platform: {ats}")
 
 
+def _hash_ids(ids) -> str:
+    joined = ",".join(sorted(ids))
+    return hashlib.sha256(joined.encode()).hexdigest()[:16]
+
+
 def ids_hash(jobs: list[Job]) -> str:
     """A short code for a board's job IDs. Same IDs (in any order) → same code."""
-    joined = ",".join(sorted(job.job_id for job in jobs))
-    return hashlib.sha256(joined.encode()).hexdigest()[:16]
+    return _hash_ids(job.job_id for job in jobs)
+
+
+def _raw_items(ats: str, data) -> list[dict]:
+    """The board's job entries, before building Job objects (Ashby: listed jobs only)."""
+    if ats == "lever":
+        return data
+    items = data.get("jobs", [])
+    if ats == "ashby":
+        items = [item for item in items if item.get("isListed") is not False]
+    return items
+
+
+def _raw_title_location(ats: str, item: dict) -> tuple[str, str]:
+    if ats == "greenhouse":
+        return item.get("title") or "", (item.get("location") or {}).get("name") or ""
+    if ats == "lever":
+        return item.get("text") or "", (item.get("categories") or {}).get("location") or ""
+    return item.get("title") or "", item.get("location") or ""
+
+
+def _wrap(ats: str, items: list[dict]):
+    """Puts entries back in the shape the source's parse_jobs expects."""
+    return items if ats == "lever" else {"jobs": items}
 
 
 def _retry_after(response: httpx.Response, attempt: int) -> float:
@@ -92,12 +119,17 @@ class Fetcher:
                     if response.status_code == 429:
                         return FetchResult(company, "throttled")
                     response.raise_for_status()
-                    jobs = PARSERS[ats](response.json(), slug)
+                    items = _raw_items(ats, response.json())
+                    # Cheap title/location check on raw data; build Job objects only for likely matches
+                    likely = [item for item in items
+                        if title_in_scope(_raw_title_location(ats, item)[0])
+                        and location_in_scope(_raw_title_location(ats, item)[1])]
+                    jobs = PARSERS[ats](_wrap(ats, likely), slug)
                     return FetchResult(
                         company, "ok",
-                        kept=[job for job in jobs if passes_rule_filter(job)],
-                        job_count=len(jobs),
-                        ids_hash=ids_hash(jobs),
+                        kept=[job for job in jobs if passes_rule_filter(job)],  # full rules
+                        job_count=len(items),
+                        ids_hash=_hash_ids(str(item["id"]) for item in items),
                     )
                 return FetchResult(company, "not_found")
             except Exception as error:  # one broken board never stops the run
