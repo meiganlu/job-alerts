@@ -1,7 +1,9 @@
 """The functions AWS Lambda calls. Lambda always passes (event, context)."""
 import os
+import json
+import boto3
 
-from jobalerts import notifier
+from jobalerts import notifier, discord_bot
 from jobalerts.digest import send_daily_digest
 from jobalerts.dynamo_store import DynamoStore
 from jobalerts.pipeline import run
@@ -42,3 +44,26 @@ def digest(event, context):
         raise
     print("Digest jobs:", count)
     return {"jobs": count}
+
+
+def discord(event, context):
+    """Katara. Two kinds of calls come in here:
+    - from Discord (via the function URL): verify and answer within 3 seconds
+    - from itself (in the background): do the actual work, then edit the reply"""
+    if "discord_work" in event:
+        interaction = event["discord_work"]
+        try:
+            text = discord_bot.run_command(interaction)
+        except Exception as error:
+            text = f"⚠️ Something went wrong: {type(error).__name__}: {str(error)[:200]}"
+        discord_bot.finish(interaction, text)
+        return {"ok": True}
+
+    def start_work(interaction):
+        boto3.client("lambda").invoke(
+            FunctionName=context.invoked_function_arn,
+            InvocationType="Event",  # don't wait for it to finish
+            Payload=json.dumps({"discord_work": interaction}),
+        )
+
+    return discord_bot.handle_request(event, start_work)

@@ -97,6 +97,21 @@ class JobAlertsStack(cdk.Stack):
         self.decisions.grant_read_data(self.digest)  # it only reads decisions
         self._grant_secrets(self.digest)
 
+        # --- Lambda 3: Katara, the Discord bot (answers slash commands) ---
+        self.discord_bot = self._function(
+            "DiscordBot", "job-alerts-discord", "jobalerts.handler.discord",
+            timeout=cdk.Duration.seconds(30),
+            environment={"DISCORD_PUBLIC_KEY": ENV["DISCORD_PUBLIC_KEY"]},
+        )
+        self.decisions.grant_read_write_data(self.discord_bot)
+        self._grant_secrets(self.discord_bot)
+        self.discord_bot.add_to_role_policy(iam.PolicyStatement(
+            actions=["lambda:InvokeFunction"],  # to start its own background step
+            resources=[f"arn:aws:lambda:{self.region}:{self.account}:function:job-alerts-discord"],
+        ))
+        bot_url = self.discord_bot.add_function_url(auth_type=lambda_.FunctionUrlAuthType.NONE)
+        cdk.CfnOutput(self, "DiscordInteractionsUrl", value=bot_url.url)
+
         # --- Schedules ---
         scheduler.Schedule(
             self, "PollEvery15Minutes",

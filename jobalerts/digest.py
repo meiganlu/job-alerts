@@ -17,7 +17,7 @@ def build_digest_lines(rows: list[dict]) -> list[str]:
     if not rows:
         return ["✅ Nothing filtered in the last 24 hours."]
     lines = [f"**Daily digest:** {len(rows)} filtered job(s). "
-             "To restore one, run in Terminal: `python restore.py <code>`"]
+        "To restore one, type `/restore <code>` in any channel."]
     for channel in ("drop", "digest"):
         group = [row for row in rows if row["channel"] == channel]
         if not group:
@@ -25,7 +25,7 @@ def build_digest_lines(rows: list[dict]) -> list[str]:
         lines.append(f"\n__{HEADINGS[channel]}__")
         for row in group:
             reason = row["reason"] if len(row["reason"]) <= 150 else row["reason"][:149] + "…"
-            lines.append(f"`#{short_code(row['job_key'])}` "
+            lines.append(f"`{short_code(row['job_key'])}` "
                          f"[{row['company']}: {row['title']}]({row['url']}) — {reason}")
     return lines
 

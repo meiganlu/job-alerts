@@ -11,6 +11,7 @@ SECRETS = [
     "DISCORD_WEBHOOK_FILTERED_OUT",
     "DISCORD_WEBHOOK_SYSTEM_HEALTH",
     "DISCORD_ROLE_ID",
+    "DISCORD_BOT_TOKEN",
 ]
 
 client = boto3.client("ssm", region_name=config.aws_region())

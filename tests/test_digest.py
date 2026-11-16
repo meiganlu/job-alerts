@@ -17,7 +17,7 @@ def test_empty_digest_says_so():
 def test_jobs_have_codes_and_are_grouped():
     text = "\n".join(build_digest_lines(ROWS))
     code = short_code("greenhouse:Upstart:7")
-    assert f"`#{code}` [Upstart: Software Engineer]" in text
+    assert f"`{code}` [Upstart: Software Engineer]" in text
     assert text.index("🔇 Dropped") < text.index("📋 Low match")
 
 
