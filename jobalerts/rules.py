@@ -7,9 +7,13 @@ from jobalerts.models import Job
 from jobalerts.precheck import obvious_years_required, sentences, years_preferred
 from jobalerts.text import trim_boilerplate
 
-_ACTIVE_CLEARANCE = re.compile(
-    r"\b(active|current)\b[^.\n]{0,40}\b(secret|top secret|ts/sci|ts|clearance)\b", re.IGNORECASE)
-_OBTAIN_WORD = re.compile(r"\b(obtain|eligib\w*)\b", re.IGNORECASE)
+# A clearance the candidate must ALREADY hold: a clearance word plus "active/hold/must/required…",
+# unless the same sentence says they can obtain one, or that none is needed
+_CLEARANCE_TERM = re.compile(r"\b(clearance|ts/sci|top secret|polygraph)\b", re.IGNORECASE)
+_HOLD_WORD = re.compile(r"\b(active|current\w*|existing|hold\w*|possess\w*|have|has|requir\w*|must)\b|clearance:",
+                        re.IGNORECASE)
+_OBTAIN_WORD = re.compile(r"\b(obtain\w*|eligib\w*|acquire|sponsor\w*|willing|able to get)\b", re.IGNORECASE)
+_NEGATION = re.compile(r"\b(no|not|without|never)\b", re.IGNORECASE)
 _OBTAIN_CLEARANCE = re.compile(
     r"\b(obtain|eligible|eligibility)\b[^.\n]{0,40}\bclearance\b", re.IGNORECASE)
 _GRAD_DEGREE = re.compile(r"\b(master'?s|m\.s\.|ph\.?d|doctorate)", re.IGNORECASE)
@@ -55,8 +59,9 @@ def tech_split(text: str) -> tuple[list[str], list[str]]:
 
 def active_clearance(text: str) -> str | None:
     """A sentence requiring an active clearance, unless it says the candidate can obtain one."""
-    for sentence, _ in sentences(text):
-        if _ACTIVE_CLEARANCE.search(sentence) and not _OBTAIN_WORD.search(sentence):
+    for sentence, soft in sentences(text):
+        if (not soft and _CLEARANCE_TERM.search(sentence) and _HOLD_WORD.search(sentence)
+                and not _OBTAIN_WORD.search(sentence) and not _NEGATION.search(sentence)):
             return sentence[:200]
     return None
 

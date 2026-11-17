@@ -61,3 +61,17 @@ def test_company_years_are_not_requirements():
     intro = "With over 20 years of experience serving customers, Acme leads.\nRequirements\n- Python"
     assert classify(job(description=intro)).channel == "maybe"
     assert classify(job(description="Our team has 15 years of experience in payments.")).channel == "maybe"
+
+
+def test_clearance_already_held_goes_to_digest():
+    for text in ("Must hold a TS/SCI clearance.", "Secret clearance required.",
+                 "Requires an existing Top Secret clearance.", "TS/SCI with Full Scope Polygraph required.",
+                 "Clearance: Top Secret/SCI", "Candidates must currently hold a security clearance."):
+        assert classify(job(description=text)).channel == "digest", text
+
+
+def test_clearance_you_can_get_or_dont_need_is_fine():
+    for text in ("Must be able to obtain a Secret clearance.", "US citizenship required due to clearance eligibility.",
+                 "Security clearance is a plus.", "No clearance required.",
+                 "This role does not require a security clearance."):
+        assert classify(job(description=text)).channel == "maybe", text
