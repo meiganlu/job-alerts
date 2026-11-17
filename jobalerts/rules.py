@@ -9,12 +9,17 @@ from jobalerts.text import trim_boilerplate
 
 _ACTIVE_CLEARANCE = re.compile(
     r"\b(active|current)\b[^.\n]{0,40}\b(secret|top secret|ts/sci|ts|clearance)\b", re.IGNORECASE)
+_OBTAIN_WORD = re.compile(r"\b(obtain|eligib\w*)\b", re.IGNORECASE)
 _OBTAIN_CLEARANCE = re.compile(
     r"\b(obtain|eligible|eligibility)\b[^.\n]{0,40}\bclearance\b", re.IGNORECASE)
 _GRAD_DEGREE = re.compile(r"\b(master'?s|m\.s\.|ph\.?d|doctorate)", re.IGNORECASE)
 _UNDERGRAD = re.compile(r"\b(bachelor'?s|b\.s\.|b\.a\.|undergraduate|equivalent)", re.IGNORECASE)
 _REQUIRED_WORD = re.compile(r"\b(required|requires?|must|minimum)\b", re.IGNORECASE)
-_LEVEL_WORDING = re.compile(r"\b(mid[- ]level|senior[- ]level|mid[- ]senior)\b", re.IGNORECASE)
+# The role's own level, not teammates': "a mid-level engineer" counts, "senior-level engineers" doesn't
+_LEVEL_WORDING = re.compile(
+    r"\b(mid[- ]level|senior[- ]level|mid[- ]senior)\b"
+    r"(?!\s+(?:\w+\s+)?(?:engineers|developers|colleagues|teammates|peers|mentors|leaders|staff))",
+    re.IGNORECASE)
 _ALWAYS_MAYBE = [phrase.lower() for phrase in CRITERIA["decision"].get("always_maybe_titles", [])]
 
 # Technology names: display spelling by lowercase name, plus aliases
@@ -48,6 +53,18 @@ def tech_split(text: str) -> tuple[list[str], list[str]]:
     return known, new
 
 
+def active_clearance(text: str) -> str | None:
+    """A sentence requiring an active clearance, unless it says the candidate can obtain one."""
+    for sentence, _ in sentences(text):
+        if _ACTIVE_CLEARANCE.search(sentence) and not _OBTAIN_WORD.search(sentence):
+            return sentence[:200]
+    return None
+
+
+def level_wording(text: str) -> str | None:
+    return _snippet(_LEVEL_WORDING, text)
+
+
 def graduate_degree_required(text: str) -> str | None:
     """A required Master's/PhD with no Bachelor's or 'equivalent' alternative in the same sentence."""
     for sentence, soft in sentences(text):
@@ -65,14 +82,12 @@ def classify(job: Job) -> Decision:
     years = obvious_years_required(text, RULES["max_years_required"] + 1)
     if years:
         return Decision(channel="drop", tags=tags, reason=f'{years[0]}+ years required: "{years[1]}"')
-    for pattern, label in ((_ACTIVE_CLEARANCE, "active clearance required"),
-                           (_LEVEL_WORDING, "mid/senior-level role")):
-        snippet = _snippet(pattern, text)
-        if snippet:
-            return Decision(channel="digest", tags=tags, reason=f'{label}: "{snippet}"')
-    degree = graduate_degree_required(text)
-    if degree:
-        return Decision(channel="digest", tags=tags, reason=f'graduate degree required: "{degree}"')
+    for check, label in ((active_clearance, "active clearance required"),
+                         (level_wording, "mid/senior-level role"),
+                         (graduate_degree_required, "graduate degree required")):
+        found = check(text)
+        if found:
+            return Decision(channel="digest", tags=tags, reason=f'{label}: "{found}"')
 
     # Information for the card
     if _OBTAIN_CLEARANCE.search(text):

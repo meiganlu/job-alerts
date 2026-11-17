@@ -1,6 +1,8 @@
 """Free checks on a job description: years of experience, stated as numbers or words."""
 import re
 
+from jobalerts.text import qualifications_part
+
 _NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
                  "eight": 8, "nine": 9, "ten": 10, "twelve": 12, "fifteen": 15}
 _WORD_NUMBER = re.compile(r"\b(" + "|".join(_NUMBER_WORDS) + r")\b", re.IGNORECASE)
@@ -10,6 +12,9 @@ _YEARS = re.compile(r"(\d{1,2})\s*(?:\+|-?\s*plus|-\s*\d{1,2}|to\s+\d{1,2})?\s*(
 _SOFT = re.compile(r"prefer|nice to have|bonus|ideal|a plus|desired", re.IGNORECASE)
 _HARD = re.compile(r"minimum|at least|required|must", re.IGNORECASE)
 _REQUIRED_HEADING = re.compile(r"requir|qualif|minimum|basic|must|you have|what you", re.IGNORECASE)
+_ABOUT_COMPANY = re.compile(r"\b(we|we've|we're|our|founded)\b", re.IGNORECASE)
+_ABOUT_CANDIDATE = re.compile(r"\b(you|your|candidates?|applicants?|requir\w*|minimum|at least|must)\b",
+                              re.IGNORECASE)
 
 
 def normalize_numbers(text: str) -> str:
@@ -35,9 +40,11 @@ def sentences(description: str):
 
 
 def _years(description: str, minimum: int, want_soft: bool) -> tuple[int, str] | None:
-    for sentence, soft in sentences(description):
+    for sentence, soft in sentences(qualifications_part(description)):
         if soft != want_soft or "experience" not in sentence.lower():
             continue
+        if _ABOUT_COMPANY.search(sentence) and not _ABOUT_CANDIDATE.search(sentence):
+            continue  # "Our team has 15 years of experience…" describes the company
         numbers = [int(match.group(1)) for match in _YEARS.finditer(sentence)]
         if numbers and min(numbers) >= minimum:  # every option asks for this many
             return min(numbers), sentence[:200]

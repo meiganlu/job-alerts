@@ -49,3 +49,15 @@ def test_tags_on_card():
     assert "🔒 clearance obtainable" in decision.tags
     assert "🌿 You know: Python" in decision.tags
     assert "🚩 New to you: Kubernetes" in decision.tags
+
+def test_teammates_level_and_obtainable_clearance_are_not_blockers():
+    assert classify(job(description="You will work with senior-level engineers.")).channel == "maybe"
+    decision = classify(job(description="Ability to obtain and maintain an active Secret clearance."))
+    assert decision.channel == "maybe"
+    assert "🔒 clearance obtainable" in decision.tags
+
+
+def test_company_years_are_not_requirements():
+    intro = "With over 20 years of experience serving customers, Acme leads.\nRequirements\n- Python"
+    assert classify(job(description=intro)).channel == "maybe"
+    assert classify(job(description="Our team has 15 years of experience in payments.")).channel == "maybe"

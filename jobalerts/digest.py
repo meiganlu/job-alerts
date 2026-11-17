@@ -4,7 +4,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from jobalerts import notifier
 
-HEADINGS = {"drop": "🔇 Dropped", "digest": "📋 Low match or active clearance"}
+HEADINGS = {"drop": "🔇 Dropped", "digest": "📋 Probably not a fit"}
 
 
 def short_code(job_key: str) -> str:

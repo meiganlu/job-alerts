@@ -1,7 +1,6 @@
 """Runs the job-alert pipeline once over every company in the companies table:
-fetch all → skip unchanged boards → baseline new boards → dedupe → pre-check → LLM → alert."""
+fetch all → skip unchanged boards → baseline new boards → dedupe → rules → LLM check → alert."""
 import asyncio
-import os
 import resource
 import time
 from collections import Counter
@@ -10,10 +9,9 @@ from zoneinfo import ZoneInfo
 
 from jobalerts import notifier
 from jobalerts.companies import company_id, companies_table, load_all
-from jobalerts.decide import RULES, Decision
-from jobalerts.dedupe import split_new, title_key
+from jobalerts.dedupe import fingerprint, split_new, title_key
 from jobalerts.fetcher import fetch_all
-from jobalerts.filters import is_bay_area, is_early_career
+from jobalerts.filters import is_early_career
 from jobalerts.models import Job
 from jobalerts.sources import greenhouse
 from jobalerts.notifier import APPLIED_EMOJI
@@ -71,15 +69,22 @@ def applied_tag(job: Job, store) -> list[str]:
 
 
 def process(job: Job, store, counts: Counter) -> bool:
-    """Rules decide; the LLM double-checks jobs that would alert you."""
-    decision = classify(job)
-    if decision.channel in ALERT_CHANNELS:
-        decision = second_opinion(job, decision, store)
-    if decision.channel in ALERT_CHANNELS:  # still alerting after the check
-        decision.tags += applied_tag(job, store)
-    store.save_decision(job, decision)
-    if decision.channel in ALERT_CHANNELS:
-        notifier.send(job, decision.channel, decision.reason, decision.tags)
+    """Rules decide; the LLM double-checks jobs that would alert you.
+    On any failure (e.g. Discord is down), the job is un-marked as seen so the next run retries it."""
+    try:
+        decision = classify(job)
+        if decision.channel in ALERT_CHANNELS:
+            decision = second_opinion(job, decision, store)
+        if decision.channel in ALERT_CHANNELS:  # still alerting after the check
+            decision.tags += applied_tag(job, store)
+        store.save_decision(job, decision)
+        if decision.channel in ALERT_CHANNELS:
+            notifier.send(job, decision.channel, decision.reason, decision.tags)
+    except Exception as error:
+        print(f"! failed on {job.company}: {job.title} ({error!r}); retrying next run")
+        store.forget(job.key, fingerprint(job))
+        counts["failed"] += 1
+        return False
     counts[decision.channel] += 1
     print(f"{decision.channel:>9}  {job.company}: {job.title}  ({decision.reason})")
     return True
@@ -148,7 +153,10 @@ def run(store, limit: int = 25, table=None) -> Counter:
     for job, original_key in copies:
         channel = store.channel_for(original_key)
         if channel in ALERT_CHANNELS:
-            notifier.send_copy_note(job, channel)
+            try:
+                notifier.send_copy_note(job, channel)
+            except Exception as error:  # a missed "also posted" note isn't worth crashing for
+                print(f"! copy note failed for {job.key}: {error!r}")
         counts["copies"] += 1
     timer.lap("decide & alert")
 

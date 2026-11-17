@@ -43,3 +43,13 @@ def trim_boilerplate(text: str) -> str:
         if i > last_qualification and len(line) < 80 and _END_HEADINGS.match(line.strip()):
             return "\n".join(lines[:i])
     return text
+
+
+def qualifications_part(text: str) -> str:
+    """The posting from its first qualifications heading on (the whole text if there's none),
+    so years in the company intro ("20 years of experience serving customers") aren't read."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if len(line) < 80 and _QUALIFICATION_HEADINGS.search(line):
+            return "\n".join(lines[i:])
+    return text

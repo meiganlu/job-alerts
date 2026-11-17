@@ -1,3 +1,6 @@
+import os
+os.environ.setdefault("BEDROCK_MODEL_ID", "test-model")  # tests never call Bedrock
+
 from jobalerts import llmcheck
 from jobalerts.decide import Decision
 from jobalerts.models import Job

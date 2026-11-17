@@ -1,6 +1,8 @@
 """Sends job alerts to Discord channels through webhooks."""
-import httpx
 import re
+import time
+
+import httpx
 
 from jobalerts import config
 from jobalerts.models import Job
@@ -27,6 +29,16 @@ def _check(response: httpx.Response) -> None:
     """Like raise_for_status, but includes Discord's explanation of what was wrong."""
     if response.is_error:
         raise RuntimeError(f"Discord said {response.status_code}: {response.text[:300]}")
+
+
+def _post(url: str, message: dict) -> httpx.Response:
+    """POST to Discord, waiting and retrying if it says we're sending too fast (429)."""
+    for _ in range(3):
+        response = httpx.post(url, json=message, timeout=10)
+        if response.status_code != 429:
+            return response
+        time.sleep(min(float(response.headers.get("Retry-After", 1)), 10))
+    return response
 
 
 def short_label(job: Job, max_len: int = 70) -> str:
@@ -101,7 +113,7 @@ def build_message(job: Job, channel: str, reason: str, role_id: str,
         lines.append(reason)
     other_tags = [tag for tag in tags if tag != "⭐ Bay Area"]
     if other_tags:
-        lines.append(" ".join(other_tags))
+        lines += other_tags  # one tag per line
 
     return {
         # Who is CALLED: "<@&id>" shows as @Team Avatar and pings it.
@@ -129,10 +141,10 @@ def send(job: Job, channel: str, reason: str, tags: list[str] | None = None,
     """Posts a job alert. If Discord refuses the button, the alert still goes out without it."""
     message = build_message(job, channel, reason, config.role_id(), tags, score, requirements)
     url = config.webhook_url(channel)
-    response = httpx.post(url + "?with_components=true", json=message, timeout=10)
+    response = _post(url + "?with_components=true", message)
     if response.status_code == 400 and message.get("components"):
         message = {**message, "components": []}
-        response = httpx.post(url, json=message, timeout=10)
+        response = _post(url, message)
     _check(response)
 
 
@@ -146,7 +158,7 @@ def build_copy_note(job: Job) -> dict:
 
 
 def send_copy_note(job: Job, channel: str) -> None:
-    response = httpx.post(config.webhook_url(channel), json=build_copy_note(job), timeout=10)
+    response = _post(config.webhook_url(channel), build_copy_note(job))
     response.raise_for_status()
 
 
@@ -161,5 +173,5 @@ def build_text_message(text: str, role_id: str | None = None) -> dict:
 def send_text(channel: str, text: str, ping: bool = False) -> None:
     """Posts plain text, e.g. the digest (silent) or a crash report (ping=True)."""
     message = build_text_message(text, config.role_id() if ping else None)
-    response = httpx.post(config.webhook_url(channel), json=message, timeout=10)
+    response = _post(config.webhook_url(channel), message)
     response.raise_for_status()

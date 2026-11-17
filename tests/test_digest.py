@@ -18,7 +18,7 @@ def test_jobs_have_codes_and_are_grouped():
     text = "\n".join(build_digest_lines(ROWS))
     code = short_code("greenhouse:Upstart:7")
     assert f"`{code}` [Upstart: Software Engineer]" in text
-    assert text.index("🔇 Dropped") < text.index("📋 Low match")
+    assert text.index("🔇 Dropped") < text.index("📋 Probably not a fit")
 
 
 def test_short_code_is_stable():
