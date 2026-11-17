@@ -6,7 +6,9 @@ from jobalerts.decide import Decision
 from jobalerts.models import Job
 
 POSTING = ("Requirements\n- 3+ years building backend services\n- Python and SQL\n"
-           "Open to candidates graduating between December 2025 and August 2026.")
+           "Open to candidates graduating between December 2025 and August 2026.\n"
+           "- BS in Mechanical or Electrical Engineering required\n"
+           "- BS in Computer Science or related field")
 
 
 class FakeStore:
@@ -79,3 +81,14 @@ def test_over_budget_skips_the_llm():
 
 def test_llm_error_keeps_rules_decision():
     assert check({}, error=RuntimeError("throttled"))[0].channel == "maybe"
+
+
+def test_non_cs_field_goes_to_digest():
+    decision, _ = check({"field_excludes_cs": True,
+                         "field_quote": "BS in Mechanical or Electrical Engineering required"})
+    assert decision.channel == "digest"
+
+
+def test_cs_or_related_field_is_never_blocked():
+    decision, _ = check({"field_excludes_cs": True, "field_quote": "BS in Computer Science or related field"})
+    assert decision.channel == "maybe"

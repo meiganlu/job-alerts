@@ -12,6 +12,13 @@ _YEARS = re.compile(r"(\d{1,2})\s*(?:\+|-?\s*plus|-\s*\d{1,2}|to\s+\d{1,2})?\s*(
 _SOFT = re.compile(r"prefer|nice to have|bonus|ideal|a plus|desired", re.IGNORECASE)
 _HARD = re.compile(r"minimum|at least|required|must", re.IGNORECASE)
 _REQUIRED_HEADING = re.compile(r"requir|qualif|minimum|basic|must|you have|what you", re.IGNORECASE)
+# "N years in/of/building …" counts as work experience even without the word "experience"
+_YEARS_AT_WORK = re.compile(
+    r"years?\s+(?:of\s+)?(?:[\w-]+\s+){0,2}(?:in|building|developing|development|working|"
+    r"writing|designing|shipping|professional|industry|software|engineering|coding|programming|hands-on)\b",
+    re.IGNORECASE)
+_EDUCATION = re.compile(r"coursework|course|degree|study|studies|school|universit|college|graduat|academic",
+                        re.IGNORECASE)
 _ABOUT_COMPANY = re.compile(r"\b(we|we've|we're|our|founded)\b", re.IGNORECASE)
 _ABOUT_CANDIDATE = re.compile(r"\b(you|your|candidates?|applicants?|requir\w*|minimum|at least|must)\b",
                               re.IGNORECASE)
@@ -39,9 +46,15 @@ def sentences(description: str):
                 yield sentence, section_soft or bool(_SOFT.search(sentence))
 
 
+def _about_experience(sentence: str) -> bool:
+    if "experience" in sentence.lower():
+        return True
+    return bool(_YEARS_AT_WORK.search(sentence)) and not _EDUCATION.search(sentence)
+
+
 def _years(description: str, minimum: int, want_soft: bool) -> tuple[int, str] | None:
     for sentence, soft in sentences(qualifications_part(description)):
-        if soft != want_soft or "experience" not in sentence.lower():
+        if soft != want_soft or not _about_experience(sentence):
             continue
         if _ABOUT_COMPANY.search(sentence) and not _ABOUT_CANDIDATE.search(sentence):
             continue  # "Our team has 15 years of experience…" describes the company

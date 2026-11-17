@@ -21,6 +21,8 @@ BUDGET_MICROS = int(float(os.environ.get("LLM_DAILY_BUDGET", "0.16")) * 1_000_00
 GRADUATION = str(RULES["graduation"])  # "2025-06"
 MAX_YEARS = RULES["max_years_required"]  # 2
 _MONTH = re.compile(r"^\d{4}-\d{2}$")
+# A field list that includes any of these still fits a CS degree, whatever the model says
+_CS_FRIENDLY = re.compile(r"computer|software|related|technical|equivalent|stem|quantitative", re.IGNORECASE)
 
 SYSTEM = f"""You review a job posting for one candidate and report facts.
 For every fact, copy a quote from the posting word for word (under 25 words). Use "" if the posting doesn't say.
@@ -32,6 +34,9 @@ Candidate: BS in Computer Science, graduated {GRADUATION}; no graduate degree; i
 - degree_required: minimum degree REQUIRED. "bachelors_or_none" if a Bachelor's or equivalent experience is accepted.
 - clearance: "active_required" only if the candidate must already hold one; "obtainable" if they can get one after hire.
 - outside_us: true only if the job must be done from outside the United States.
+- field_excludes_cs: true only if the posting REQUIRES a degree in specific fields and none of them is
+  Computer Science, Computer/Software Engineering, or a "related"/"technical" field
+  (e.g. "BS in Mechanical or Electrical Engineering required"). Quote the field wording in field_quote.
 - requirements: up to 6 required qualifications, each under 8 words, most important first."""
 
 
@@ -48,6 +53,8 @@ class Report(BaseModel):
     clearance_quote: str = ""
     outside_us: bool = False
     location_quote: str = ""
+    field_excludes_cs: bool = False
+    field_quote: str = ""
     requirements: list[str] = []
 
 
@@ -108,6 +115,8 @@ def find_blocker(report: Report, job: Job) -> tuple[str, str] | None:
         (report.degree_required != "bachelors_or_none", report.degree_quote, "graduate degree required"),
         (report.clearance == "active_required", report.clearance_quote, "active clearance required"),
         (report.outside_us, report.location_quote, "outside the US"),
+        (report.field_excludes_cs and not _CS_FRIENDLY.search(report.field_quote), report.field_quote,
+         "degree field excludes CS"),
     ]
     for failed, quote, label in checks:
         if failed and verified(quote):

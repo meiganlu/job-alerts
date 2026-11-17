@@ -27,3 +27,11 @@ def test_minimum_wording_counts_inside_soft_section():
 def test_number_words_and_parentheses():
     assert obvious_years_required("- five (5) years of experience")[0] == 5
     assert obvious_years_required("- three-plus years of experience")[0] == 3
+
+
+def test_years_without_the_word_experience():
+    assert obvious_years_required("Requirements\n- 6+ years in software development")[0] == 6
+    assert obvious_years_required("- 6+ years building distributed systems")[0] == 6
+    assert obvious_years_required("- 4+ years of backend development")[0] == 4
+    assert obvious_years_required("Acme was founded 10 years ago.") is None
+    assert obvious_years_required("Open to students within 2 years of graduation.") is None
