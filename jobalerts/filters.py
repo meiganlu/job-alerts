@@ -31,6 +31,9 @@ LEVEL_I = _word_pattern(["i"])
 LEVEL_II = _word_pattern(["ii"])
 LEVEL_II_ENTRY_COMPANIES = {name.lower() for name in CRITERIA["level_ii_entry_companies"]}
 COMPANY_EXCLUDE = {name.lower() for name in CRITERIA.get("company_exclude", [])}
+# QA words alone also describe non-software QA ("Video and Audio QA"), so they need a software word too
+QA_WORDS = _word_pattern(["qa", "quality assurance", "tester", "test automation"])
+SOFTWARE_CONTEXT = _word_pattern(["software", "automation", "sdet", "engineer", "engineering", "developer", "tester"])
 
 
 def title_in_scope(title: str) -> bool:
@@ -39,7 +42,11 @@ def title_in_scope(title: str) -> bool:
         # Swap allowed titles for a neutral in-scope word, so "staff" inside
         # "member of technical staff" isn't treated as senior
         text = text.replace(phrase, "software engineer")
-    return bool(TITLE_INCLUDE.search(text)) and not TITLE_EXCLUDE.search(text)
+    if not TITLE_INCLUDE.search(text) or TITLE_EXCLUDE.search(text):
+        return False
+    if not TITLE_INCLUDE.search(QA_WORDS.sub(" ", text)):  # in scope only because of a QA word
+        return bool(SOFTWARE_CONTEXT.search(text))
+    return True
 
 
 def _is_us(part: str) -> bool:

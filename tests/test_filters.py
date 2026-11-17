@@ -89,3 +89,11 @@ def test_level_rules():
     assert passes_rule_filter(job_titled("Software Engineer I/II"))                # combined
     assert passes_rule_filter(job_titled("Software Engineer II", company="Google"))  # entry at Google
     assert not passes_rule_filter(job_titled("Software Engineer III"))
+
+
+def test_qa_titles_need_a_software_word():
+    from jobalerts.filters import title_in_scope
+    assert not title_in_scope("Crux - Video and Audio QA - English (US)")
+    assert not title_in_scope("QA Analyst")
+    for title in ("QA Engineer", "Software Tester", "Test Automation Specialist", "SDET", "QA Automation Engineer"):
+        assert title_in_scope(title), title

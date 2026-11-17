@@ -75,3 +75,11 @@ def test_clearance_you_can_get_or_dont_need_is_fine():
                  "Security clearance is a plus.", "No clearance required.",
                  "This role does not require a security clearance."):
         assert classify(job(description=text)).channel == "maybe", text
+
+
+
+def test_part_time_and_freelance_go_to_digest():
+    for text in ("Engagement Type: Freelance", "This is a part-time role (20 hours/week).",
+                 "Temporary 6-month position."):
+        assert classify(job(description=text)).channel == "digest", text
+    assert classify(job(description="Full-time or part-time schedules available.")).channel == "maybe"

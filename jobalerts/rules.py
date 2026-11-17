@@ -16,6 +16,8 @@ _OBTAIN_WORD = re.compile(r"\b(obtain\w*|eligib\w*|acquire|sponsor\w*|willing|ab
 _NEGATION = re.compile(r"\b(no|not|without|never)\b", re.IGNORECASE)
 _OBTAIN_CLEARANCE = re.compile(
     r"\b(obtain|eligible|eligibility)\b[^.\n]{0,40}\bclearance\b", re.IGNORECASE)
+_NOT_FULL_TIME = re.compile(r"\b(part[- ]time|freelance\w*|temporary|seasonal)\b", re.IGNORECASE)
+_FULL_TIME = re.compile(r"\bfull[- ]time\b", re.IGNORECASE)
 _GRAD_DEGREE = re.compile(r"\b(master'?s|m\.s\.|ph\.?d|doctorate)", re.IGNORECASE)
 _UNDERGRAD = re.compile(r"\b(bachelor'?s|b\.s\.|b\.a\.|undergraduate|equivalent)", re.IGNORECASE)
 _REQUIRED_WORD = re.compile(r"\b(required|requires?|must|minimum)\b", re.IGNORECASE)
@@ -66,6 +68,14 @@ def active_clearance(text: str) -> str | None:
     return None
 
 
+def not_full_time(text: str) -> str | None:
+    """A sentence saying the job is part-time, freelance, or temporary (and not also full-time)."""
+    for sentence, _ in sentences(text):
+        if _NOT_FULL_TIME.search(sentence) and not _FULL_TIME.search(sentence):
+            return sentence[:200]
+    return None
+
+
 def level_wording(text: str) -> str | None:
     return _snippet(_LEVEL_WORDING, text)
 
@@ -87,7 +97,8 @@ def classify(job: Job) -> Decision:
     years = obvious_years_required(text, RULES["max_years_required"] + 1)
     if years:
         return Decision(channel="drop", tags=tags, reason=f'{years[0]}+ years required: "{years[1]}"')
-    for check, label in ((active_clearance, "active clearance required"),
+    for check, label in ((not_full_time, "not full-time"),
+                         (active_clearance, "active clearance required"),
                          (level_wording, "mid/senior-level role"),
                          (graduate_degree_required, "graduate degree required")):
         found = check(text)
