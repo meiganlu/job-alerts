@@ -147,9 +147,10 @@ class DynamoStore:
 
     def llm_spent(self, day: str) -> int:
         """Micro-dollars spent on the LLM today (1,000,000 = $1)."""
-        item = self.usage.get_item(Key={"day": day}).get("Item") or {}
+        item = self.usage.get_item(Key={"counter_id": f"llm-spend#{day}"}).get("Item") or {}
         return int(item.get("spent_micros", 0))
 
     def add_llm_spend(self, day: str, micros: int) -> None:
-        self.usage.update_item(Key={"day": day}, UpdateExpression="ADD spent_micros :m",
+        self.usage.update_item(Key={"counter_id": f"llm-spend#{day}"},
+                               UpdateExpression="ADD spent_micros :m",
                                ExpressionAttributeValues={":m": micros})

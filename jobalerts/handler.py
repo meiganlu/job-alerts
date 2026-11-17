@@ -67,3 +67,13 @@ def discord(event, context):
         )
 
     return discord_bot.handle_request(event, start_work)
+
+
+def alarm(event, context):
+    """Forwards CloudWatch alarm notifications (via SNS) to #system-health."""
+    for record in event["Records"]:
+        message = json.loads(record["Sns"]["Message"])
+        state = message.get("NewStateValue", "?")
+        icon = "🔴" if state == "ALARM" else "🟢"
+        text = f"{icon} **{message.get('AlarmName')}** is {state}\n{message.get('NewStateReason', '')[:500]}"
+        notifier.send_text("system_health", text, ping=(state == "ALARM"))

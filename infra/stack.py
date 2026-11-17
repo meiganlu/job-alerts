@@ -132,6 +132,14 @@ class JobAlertsStack(cdk.Stack):
         # --- Alarms: email when something breaks ---
         alarm_topic = sns.Topic(self, "AlarmTopic", topic_name="job-alerts-alarms")
         alarm_topic.add_subscription(subscriptions.EmailSubscription(ENV["ALERT_EMAIL"]))
+
+        # Lambda 4: forwards every alarm message to #system-health on Discord
+        self.alarm_forwarder = self._function(
+            "AlarmForwarder", "job-alerts-alarm", "jobalerts.handler.alarm",
+            timeout=cdk.Duration.seconds(30),
+        )
+        self._grant_secrets(self.alarm_forwarder)  # to read the Discord webhook URL
+        alarm_topic.add_subscription(subscriptions.LambdaSubscription(self.alarm_forwarder))
         email = cw_actions.SnsAction(alarm_topic)
 
         for function in (self.poller, self.digest):
@@ -143,6 +151,7 @@ class JobAlertsStack(cdk.Stack):
                 treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
             )
             errors.add_alarm_action(email)
+            errors.add_ok_action(email)
 
         not_running = self.poller.metric_invocations(period=cdk.Duration.hours(1)).create_alarm(
             self, "PollerNotRunning",
@@ -153,6 +162,7 @@ class JobAlertsStack(cdk.Stack):
             treat_missing_data=cloudwatch.TreatMissingData.BREACHING,
         )
         not_running.add_alarm_action(email)
+        not_running.add_ok_action(email)
     
     # --- Helper functs ---
 
