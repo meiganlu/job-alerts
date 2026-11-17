@@ -83,3 +83,11 @@ def test_hash_matches_full_parse():
     [result] = fetch([{"ats": "greenhouse", "slug": "acme"}],
                      lambda request: httpx.Response(200, json=GREENHOUSE))
     assert result.ids_hash == ids_hash(parse_jobs(GREENHOUSE, "acme"))
+
+
+def test_boards_after_the_deadline_are_skipped():
+    import time
+    results = asyncio.run(fetch_all([{"ats": "greenhouse", "slug": "acme"}],
+                                    transport=httpx.MockTransport(lambda r: httpx.Response(200, json=GREENHOUSE)),
+                                    sleep=no_wait, deadline=time.monotonic() - 1))
+    assert results[0].status == "skipped"

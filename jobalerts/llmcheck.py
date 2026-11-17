@@ -59,7 +59,8 @@ TOOLS = {"tools": [{"toolSpec": {"name": "report", "description": "Report facts 
 @lru_cache
 def _client():
     return boto3.client("bedrock-runtime", region_name=config.aws_region(),
-                        config=Config(retries={"max_attempts": 3, "mode": "adaptive"}, read_timeout=60))
+                        config=Config(retries={"max_attempts": 2, "mode": "adaptive"},
+                                      connect_timeout=5, read_timeout=20))
 
 
 def _norm(text: str) -> str:

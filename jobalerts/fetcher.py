@@ -1,6 +1,7 @@
 """Fetches many job boards at once, keeping only jobs that pass the rule filter."""
 import asyncio
 import hashlib
+import time
 from dataclasses import dataclass, field
 
 import httpx
@@ -12,6 +13,7 @@ from jobalerts.sources import ashby, greenhouse, lever
 LIMITS = {"greenhouse": 10, "lever": 6, "ashby": 6}  # requests in flight at once, per platform
 MAX_RETRIES = 3
 GIVE_UP_AFTER_THROTTLES = 20  # a platform that keeps saying "slow down" is skipped this run
+BOARD_TIMEOUT = 60  # seconds one board may take in total, retries included
 PARSERS = {"greenhouse": greenhouse.parse_jobs, "lever": lever.parse_jobs, "ashby": ashby.parse_jobs}
 
 
@@ -78,9 +80,10 @@ def _retry_after(response: httpx.Response, attempt: int) -> float:
 
 
 class Fetcher:
-    def __init__(self, client: httpx.AsyncClient, sleep=asyncio.sleep):
+    def __init__(self, client: httpx.AsyncClient, sleep=asyncio.sleep, deadline: float | None = None):
         self.client = client
         self.sleep = sleep  # replaceable in tests, so they don't actually wait
+        self.deadline = deadline  # time.monotonic() value after which no new board is started
         self.slots = {ats: asyncio.Semaphore(n) for ats, n in LIMITS.items()}
         self.throttles = {ats: 0 for ats in LIMITS}
 
@@ -107,38 +110,44 @@ class Fetcher:
             return response
 
     async def fetch_one(self, company: dict) -> FetchResult:
-        ats, slug = company["ats"], company["slug"]
-        if self.throttles[ats] >= GIVE_UP_AFTER_THROTTLES:
+        if self.throttles[company["ats"]] >= GIVE_UP_AFTER_THROTTLES:
             return FetchResult(company, "skipped")
-        async with self.slots[ats]:  # wait for a free slot on this platform
-            try:
-                for url in board_urls(ats, slug):
-                    response = await self._get(ats, url)
-                    if response.status_code == 404:
-                        continue  # not on this host (Lever: try the EU host next)
-                    if response.status_code == 429:
-                        return FetchResult(company, "throttled")
-                    response.raise_for_status()
-                    items = _raw_items(ats, response.json())
-                    # Cheap title/location check on raw data; build Job objects only for likely matches
-                    likely = [item for item in items
-                        if title_in_scope(_raw_title_location(ats, item)[0])
-                        and location_in_scope(_raw_title_location(ats, item)[1])]
-                    jobs = PARSERS[ats](_wrap(ats, likely), slug)
-                    return FetchResult(
-                        company, "ok",
-                        kept=[job for job in jobs if passes_rule_filter(job)],  # full rules
-                        job_count=len(items),
-                        ids_hash=_hash_ids(str(item["id"]) for item in items),
-                    )
-                return FetchResult(company, "not_found")
-            except Exception as error:  # one broken board never stops the run
+        async with self.slots[company["ats"]]:  # wait for a free slot on this platform
+            if self.deadline is not None and time.monotonic() > self.deadline:
+                return FetchResult(company, "skipped")  # out of time; checked next run
+            try:  # one slow or broken board never stops the run
+                return await asyncio.wait_for(self._fetch_board(company), BOARD_TIMEOUT)
+            except Exception as error:
                 return FetchResult(company, "error", error=f"{type(error).__name__}: {error}"[:200])
 
+    async def _fetch_board(self, company: dict) -> FetchResult:
+        ats, slug = company["ats"], company["slug"]
+        for url in board_urls(ats, slug):
+            response = await self._get(ats, url)
+            if response.status_code == 404:
+                continue  # not on this host (Lever: try the EU host next)
+            if response.status_code == 429:
+                return FetchResult(company, "throttled")
+            response.raise_for_status()
+            items = _raw_items(ats, response.json())
+            # Cheap title/location check on raw data; build Job objects only for likely matches
+            likely = [item for item in items
+                      if title_in_scope(_raw_title_location(ats, item)[0])
+                      and location_in_scope(_raw_title_location(ats, item)[1])]
+            jobs = PARSERS[ats](_wrap(ats, likely), slug)
+            return FetchResult(
+                company, "ok",
+                kept=[job for job in jobs if passes_rule_filter(job)],  # full rules
+                job_count=len(items),
+                ids_hash=_hash_ids(str(item["id"]) for item in items),
+            )
+        return FetchResult(company, "not_found")
 
-async def fetch_all(companies: list[dict], transport=None, sleep=asyncio.sleep) -> list[FetchResult]:
+
+async def fetch_all(companies: list[dict], transport=None, sleep=asyncio.sleep,
+                    deadline: float | None = None) -> list[FetchResult]:
     """Fetches every company. Companies earlier in the list get the first slots,
-    so favorites (sorted first) are checked first."""
+    so favorites (sorted first) are checked first. Boards not started by `deadline` are skipped."""
     async with httpx.AsyncClient(
         timeout=15,
         follow_redirects=True,
@@ -146,5 +155,5 @@ async def fetch_all(companies: list[dict], transport=None, sleep=asyncio.sleep) 
         limits=httpx.Limits(max_connections=sum(LIMITS.values()) + 5),
         headers={"User-Agent": "job-alerts personal project (polls public job-board APIs)"},
     ) as client:
-        fetcher = Fetcher(client, sleep)
+        fetcher = Fetcher(client, sleep, deadline)
         return await asyncio.gather(*(fetcher.fetch_one(company) for company in companies))

@@ -21,6 +21,7 @@ from jobalerts.llmcheck import second_opinion
 
 ALERT_CHANNELS = {"apply_now", "maybe"}
 DEAD_AFTER_MISSES = 3
+DECIDE_RESERVE = 4 * 60  # seconds kept free after fetching: ~1 min for boards still in flight, 3+ to decide
 
 
 def priority(job: Job, favorites: set) -> tuple[bool, bool]:
@@ -103,14 +104,16 @@ class Timer:
         self.wall, self.cpu = now_wall, now_cpu
 
 
-def run(store, limit: int = 25, table=None) -> Counter:
+def run(store, limit: int = 25, table=None, deadline: float | None = None) -> Counter:
+    """`deadline` is a time.monotonic() value the run must finish by (default: 13 minutes from now)."""
+    deadline = deadline or time.monotonic() + 13 * 60
     counts = Counter()
     table = table or companies_table()
     timer = Timer()
     companies = [company for company in load_all(table) if not company.get("dead")]
     favorites = {(c["ats"], c["slug"]) for c in companies if c.get("favorite")}
     timer.lap("load companies")
-    results = asyncio.run(fetch_all(companies))
+    results = asyncio.run(fetch_all(companies, deadline=deadline - DECIDE_RESERVE))
     timer.lap("fetch & filter")
 
     # 1. Sort every board into: missing, new (baseline), unchanged (skip), or changed
@@ -147,7 +150,13 @@ def run(store, limit: int = 25, table=None) -> Counter:
     new_jobs, copies = split_new(batch, store)
 
     # 3. Decide and alert
-    for job in new_jobs:
+    for index, job in enumerate(new_jobs):
+        if time.monotonic() > deadline:  # out of time: un-mark the rest so next run handles them
+            for leftover in new_jobs[index:]:
+                store.forget(leftover.key, fingerprint(leftover))
+                pending.add(_company_of(leftover))
+            counts["out_of_time"] = len(new_jobs) - index
+            break
         if not process(job, store, counts):
             pending.add(_company_of(job))
     for job, original_key in copies:

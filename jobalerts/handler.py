@@ -1,6 +1,8 @@
 """The functions AWS Lambda calls. Lambda always passes (event, context)."""
-import os
 import json
+import os
+import time
+
 import boto3
 
 from jobalerts import notifier, discord_bot
@@ -27,7 +29,9 @@ def poll(event, context):
     try:
         if (event or {}).get("test_crash"):
             raise RuntimeError("Test crash (triggered on purpose)")
-        counts = run(DynamoStore(), limit=int(os.getenv("LLM_LIMIT", "25")))
+        # Finish 60 s before Lambda's timeout, so the run ends cleanly instead of being killed
+        deadline = time.monotonic() + context.get_remaining_time_in_millis() / 1000 - 60 if context else None
+        counts = run(DynamoStore(), limit=int(os.getenv("LLM_LIMIT", "25")), deadline=deadline)
     except Exception as error:
         _report_crash("poller", error)
         raise  # still fail the run, so CloudWatch counts it as an error
