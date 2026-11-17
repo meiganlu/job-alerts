@@ -155,6 +155,7 @@ decision:
   apply_now_score: 0.5             # 50%+ of required hard skills = #apply-now
   maybe_score: 0.25                # 25-50% = #maybe; any below = digest
   drop_domains: [mobile]
+  always_maybe_titles: [forward deployed]
 
 early_career: [new grad, new graduate, early career, university, entry level,
   entry-level, junior, graduate]
@@ -163,3 +164,20 @@ level_ii_entry_companies: [google]
 
 # Companies never alerted on (aggregators that repost other companies' jobs, etc.)
 company_exclude: [jobgether]
+
+# Technologies to detect in postings (shown as "You know" / "New to you" on alerts)
+technologies: [Python, Java, JavaScript, TypeScript, C++, C#, Golang, Rust, Ruby, PHP,
+  Scala, Kotlin, Swift, SQL, Bash, React, Angular, Vue, Svelte, Next.js, Node.js,
+  Express.js, Django, Flask, FastAPI, Spring Boot, Ruby on Rails, .NET, GraphQL,
+  REST API, gRPC, AWS, GCP, Azure, Docker, Kubernetes, Terraform, Ansible, Jenkins,
+  GitHub Actions, Buildkite, CI/CD, Linux, PostgreSQL, MySQL, MongoDB, Redis, DynamoDB,
+  Cassandra, Elasticsearch, Kafka, Spark, Hadoop, Airflow, dbt, Snowflake, BigQuery,
+  PyTorch, TensorFlow, pandas, NumPy, scikit-learn, Selenium, Cypress, Playwright,
+  pytest, JUnit, Tailwind, D3.js, HTML, CSS]
+tech_aliases: {k8s: Kubernetes, postgres: PostgreSQL, nodejs: Node.js, nextjs: Next.js,
+  expressjs: Express.js, restful: REST API, "rest apis": REST API, "github action": GitHub Actions}
+
+# Technologies known (from resume)
+my_skills: [Python, TypeScript, JavaScript, Java, C++, Golang, AWS, Docker, Linux,
+  Buildkite, CI/CD, React, Next.js, Node.js, Express.js, Flask, Svelte, Tailwind, D3.js,
+  MongoDB, DynamoDB, Bash, REST API, pytest]

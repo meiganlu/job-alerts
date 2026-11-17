@@ -10,26 +10,19 @@ from zoneinfo import ZoneInfo
 
 from jobalerts import notifier
 from jobalerts.companies import company_id, companies_table, load_all
-from jobalerts.decide import RULES, Decision, decide
-from jobalerts.dedupe import fingerprint, split_new, title_key
-from jobalerts.extract import extract, verify
+from jobalerts.decide import RULES, Decision
+from jobalerts.dedupe import split_new, title_key
 from jobalerts.fetcher import fetch_all
 from jobalerts.filters import is_bay_area, is_early_career
 from jobalerts.models import Job
-from jobalerts.precheck import obvious_years_required
 from jobalerts.sources import greenhouse
 from jobalerts.notifier import APPLIED_EMOJI
+from jobalerts.rules import classify
+from jobalerts.llmcheck import second_opinion
 
 
 ALERT_CHANNELS = {"apply_now", "maybe"}
-DAILY_LLM_LIMIT = int(os.getenv("DAILY_LLM_LIMIT", "50"))
 DEAD_AFTER_MISSES = 3
-NOT_ANALYZED = "⚡ Not analyzed: today's LLM budget is used up. Check the posting yourself."
-
-
-def today_pacific() -> str:
-    """The LLM budget resets at midnight Pacific time."""
-    return datetime.now(ZoneInfo("America/Los_Angeles")).date().isoformat()
 
 
 def priority(job: Job, favorites: set) -> tuple[bool, bool]:
@@ -77,41 +70,16 @@ def applied_tag(job: Job, store) -> list[str]:
     return [f"{APPLIED_EMOJI} You applied to a similar role on {day}"]
 
 
-def send_not_analyzed(job: Job, store) -> None:
-    """Over budget: alert right away without the LLM, so nothing is delayed or lost."""
-    tags = (["⭐ Bay Area"] if is_bay_area(job.location) else []) + applied_tag(job, store)
-    decision = Decision(channel="maybe", reason=NOT_ANALYZED, tags=tags)
-    store.save_decision(job, decision)
-    notifier.send(job, "maybe", decision.reason, decision.tags)
-
-
 def process(job: Job, store, counts: Counter) -> bool:
-    """Decides one new job and alerts if needed. Returns False if it must be retried next run."""
-    years = obvious_years_required(job.description, RULES["max_years_required"] + 1)
-    if years:
-        number, quote = years
-        store.save_decision(job, Decision(
-            channel="digest", reason=f'{number}+ years required (pre-check): "{quote}"'))
-        counts["precheck"] += 1
-        return True
-    if not store.reserve_llm_call(today_pacific(), DAILY_LLM_LIMIT):
-        send_not_analyzed(job, store)
-        counts["not_analyzed"] += 1
-        return True
-    try:
-        facts = verify(extract(job), job)
-    except Exception as error:
-        print(f"! LLM failed for {job.title} @ {job.company}: {error}")
-        store.forget(job.key, fingerprint(job))
-        counts["llm_errors"] += 1
-        return False
-    decision = decide(facts, job)
+    """Rules decide; the LLM double-checks jobs that would alert you."""
+    decision = classify(job)
     if decision.channel in ALERT_CHANNELS:
+        decision = second_opinion(job, decision, store)
+    if decision.channel in ALERT_CHANNELS:  # still alerting after the check
         decision.tags += applied_tag(job, store)
     store.save_decision(job, decision)
     if decision.channel in ALERT_CHANNELS:
-        notifier.send(job, decision.channel, decision.reason, decision.tags,
-                      decision.score, facts.requirements)
+        notifier.send(job, decision.channel, decision.reason, decision.tags)
     counts[decision.channel] += 1
     print(f"{decision.channel:>9}  {job.company}: {job.title}  ({decision.reason})")
     return True

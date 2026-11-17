@@ -116,7 +116,7 @@ def build_message(job: Job, channel: str, reason: str, role_id: str,
                 "title": f"{job.title} @ {job.company}"[:256],  # Discord's 256-char limit
                 "url": str(job.url),
                 "description": "\n".join(lines)[:4000],
-                "color": COLORS.get(channel, GRAY) if score is not None else GRAY,
+                "color": COLORS.get(channel, GRAY),
                 "fields": requirement_fields(requirements or []),
             }
         ],

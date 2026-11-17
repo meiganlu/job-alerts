@@ -75,11 +75,8 @@ class JobAlertsStack(cdk.Stack):
         self.poller = self._function(
             "Poller", "job-alerts-poller", "jobalerts.handler.poll",
             timeout=cdk.Duration.minutes(14),
-            environment={
-                "BEDROCK_MODEL_ID": ENV["BEDROCK_MODEL_ID"],
-                "LLM_LIMIT": "25",
-                "DAILY_LLM_LIMIT": "50",
-            },
+            environment={"BEDROCK_MODEL_ID": ENV["BEDROCK_MODEL_ID"], "LLM_LIMIT": "100",
+                "LLM_DAILY_BUDGET": "0.16"},
         )
         for table in (self.seen_keys, self.seen_fingerprints, self.decisions, self.usage, self.companies, self.applied):
             table.grant_read_write_data(self.poller)

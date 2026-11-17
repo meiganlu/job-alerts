@@ -83,8 +83,8 @@ def test_short_locations():
 
 
 def test_stripe_color_by_channel():
-    assert build_message(JOB, "apply_now", "x", "123", score=0.9)["embeds"][0]["color"] == 0x2ECC71
-    assert build_message(JOB, "maybe", "⚡ Not analyzed", "123")["embeds"][0]["color"] == 0x95A5A6
+    assert build_message(JOB, "apply_now", "x", "123")["embeds"][0]["color"] == 0x2ECC71
+    assert build_message(JOB, "maybe", "x", "123")["embeds"][0]["color"] == 0xF1C40F
 
 
 def test_alert_has_applied_button():

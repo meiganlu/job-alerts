@@ -22,3 +22,8 @@ def test_preferred_section_is_skipped():
 def test_minimum_wording_counts_inside_soft_section():
     text = "Ideal Candidate\n- Minimum 5 years of experience"
     assert obvious_years_required(text)[0] == 5
+
+
+def test_number_words_and_parentheses():
+    assert obvious_years_required("- five (5) years of experience")[0] == 5
+    assert obvious_years_required("- three-plus years of experience")[0] == 3
