@@ -1,7 +1,6 @@
 """Remembers seen jobs in DynamoDB. Same methods as SeenStore."""
 import json
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -58,8 +57,6 @@ class DynamoStore:
             "day": now.strftime("%Y-%m-%d"),  # for the by-day index
             "decided_at": now.isoformat(),
         }
-        if decision.score is not None:
-            item["score"] = Decimal(str(round(decision.score, 4)))
         self.decisions.put_item(Item=item)
 
     def channel_for(self, key: str) -> str | None:
@@ -105,20 +102,6 @@ class DynamoStore:
                 kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
             day += timedelta(days=1)
         return results
-
-    def reserve_llm_call(self, day: str, limit: int) -> bool:
-        """Counts one LLM call for `day`. Returns False if the day's budget is used up.
-        One atomic update, so two runs at once can never both take the last call."""
-        try:
-            self.usage.update_item(
-                Key={"counter_id": f"llm-calls#{day}"},
-                UpdateExpression="ADD calls :one",
-                ConditionExpression="attribute_not_exists(calls) OR calls < :limit",
-                ExpressionAttributeValues={":one": 1, ":limit": limit},
-            )
-            return True
-        except self.usage.meta.client.exceptions.ConditionalCheckFailedException:
-            return False
 
     def add_keys(self, keys: list[str]) -> None:
         """Writes many keys in batches of 25 (much faster than one at a time)."""

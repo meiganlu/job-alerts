@@ -9,20 +9,9 @@ from jobalerts.models import Job
 from jobalerts.filters import is_bay_area
 
 PING_CHANNELS = {"apply_now", "maybe"}
-STATUS_ICONS = {"met": "🌿", "partial": "🌙", "not_met": "🚩"}
-GAPS_FIRST = {"not_met": 0, "partial": 1, "met": 2}
 COLORS = {"apply_now": 0x2ECC71, "maybe": 0xF1C40F}  # green, amber
-GRAY = 0x95A5A6  # not analyzed or restored (no score)
+GRAY = 0x95A5A6  # any other channel
 APPLIED_EMOJI = "🍀"
-
-# Common openings that add length but no meaning
-_LEAD_INS = re.compile(
-    r"^(your experience demonstrates (that )?(you )?|you have|you are|you're|you will|"
-    r"you can|you bring|comfortable (with )?|experience (with|in)|working knowledge of|"
-    r"familiarity with|basic understanding (or|of)|solid understanding of|strong|"
-    r"excellent|proficiency (in|with)|knowledge of|demonstrated|ability to)\s*",
-    re.IGNORECASE,
-)
 
 
 def _check(response: httpx.Response) -> None:
@@ -47,15 +36,6 @@ def short_label(job: Job, max_len: int = 70) -> str:
     return label if len(label) <= max_len else label[: max_len - 1] + "…"
 
 
-def short_requirement(text: str, max_len: int = 44) -> str:
-    """Drops a common lead-in and cuts at a word boundary so it fits one phone line."""
-    text = _LEAD_INS.sub("", text.strip()).rstrip(".")
-    text = text[:1].upper() + text[1:]
-    if len(text) <= max_len:
-        return text
-    return text[:max_len].rsplit(" ", 1)[0].rstrip(",;:") + "…"
-
-
 def short_locations(location: str, max_shown: int = 2) -> str:
     """Bay Area cities first, at most two, then '+N': 'Mountain View · San Francisco +2'."""
     cities = []
@@ -70,22 +50,6 @@ def short_locations(location: str, max_shown: int = 2) -> str:
     return " · ".join(cities[:max_shown]) + (f" +{extra}" if extra > 0 else "")
 
 
-def requirement_fields(requirements: list) -> list[dict]:
-    """Three blocks (Required, Preferred, Soft skills), gaps first within each."""
-    sections = [
-        ("Required", lambda r: r.importance == "required" and r.kind == "hard"),
-        ("Preferred", lambda r: r.importance == "preferred" and r.kind == "hard"),
-        ("Soft skills", lambda r: r.kind == "soft"),
-    ]
-    fields = []
-    for name, belongs in sections:
-        items = sorted((r for r in requirements if belongs(r)), key=lambda r: GAPS_FIRST[r.status])
-        if items:
-            value = "\n".join(f"{STATUS_ICONS[r.status]} {short_requirement(r.requirement)}" for r in items)
-            fields.append({"name": name, "value": value[:1024], "inline": False})
-    return fields
-
-
 def applied_components(job_key: str, applied_on: str | None = None) -> list[dict]:
     """The 🍀 Applied button under an alert. Greyed out once clicked."""
     if len(job_key) > 92:  # Discord limits a button's ID to 100 characters
@@ -97,8 +61,7 @@ def applied_components(job_key: str, applied_on: str | None = None) -> list[dict
 
 
 def build_message(job: Job, channel: str, reason: str, role_id: str,
-                  tags: list[str] | None = None, score: float | None = None,
-                  requirements: list | None = None, quiet: bool = False) -> dict:
+                  tags: list[str] | None = None, quiet: bool = False) -> dict:
     """Builds the message Discord will display. Makes no network calls.
     quiet=True posts an alert card without pinging your phone."""
     alert = channel in PING_CHANNELS  # apply_now and maybe get the Apply button
@@ -106,13 +69,8 @@ def build_message(job: Job, channel: str, reason: str, role_id: str,
     tags = tags or []
     bay_area = "⭐ Bay Area" in tags
 
-    # Line 1: "83% match · 📍 New York · San Francisco ⭐"
-    meta = [f"{score:.0%} match"] if score is not None else []
-    meta.append(f"📍 {short_locations(job.location)}" + (" ⭐" if bay_area else ""))
-    lines = [" · ".join(meta)]
-    # The reason only adds information when it isn't the plain score
-    if score is None or not reason.startswith("meets"):
-        lines.append(reason)
+    # Line 1: "📍 New York · San Francisco ⭐", then the reason, then one tag per line
+    lines = [f"📍 {short_locations(job.location)}" + (" ⭐" if bay_area else ""), reason]
     other_tags = [tag for tag in tags if tag != "⭐ Bay Area"]
     if other_tags:
         lines += other_tags  # one tag per line
@@ -131,7 +89,6 @@ def build_message(job: Job, channel: str, reason: str, role_id: str,
                 "url": str(job.url),
                 "description": "\n".join(lines)[:4000],
                 "color": COLORS.get(channel, GRAY),
-                "fields": requirement_fields(requirements or []),
             }
         ],
         "components": applied_components(job.key) if alert else [],
@@ -139,9 +96,9 @@ def build_message(job: Job, channel: str, reason: str, role_id: str,
 
 
 def send(job: Job, channel: str, reason: str, tags: list[str] | None = None,
-         score: float | None = None, requirements: list | None = None, quiet: bool = False) -> None:
+         quiet: bool = False) -> None:
     """Posts a job alert. If Discord refuses the button, the alert still goes out without it."""
-    message = build_message(job, channel, reason, config.role_id(), tags, score, requirements, quiet)
+    message = build_message(job, channel, reason, config.role_id(), tags, quiet)
     url = config.webhook_url(channel)
     response = _post(url + "?with_components=true", message)
     if response.status_code == 400 and message.get("components"):

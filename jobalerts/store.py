@@ -50,7 +50,7 @@ class SeenStore:
         self.db.execute(
             "INSERT OR REPLACE INTO decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (job.key, job.company, job.title, str(job.url), job.location,
-             decision.channel, decision.reason, decision.score,
+             decision.channel, decision.reason, None,
              json.dumps(decision.tags), datetime.now(timezone.utc).isoformat()),
         )
 
@@ -77,19 +77,6 @@ class SeenStore:
 
     def set_channel(self, key: str, channel: str) -> None:
         self.db.execute("UPDATE decisions SET channel = ? WHERE key = ?", (channel, key))
-
-    def reserve_llm_call(self, day: str, limit: int) -> bool:
-        """Counts one LLM call for `day`. Returns False if the day's budget is used up."""
-        counter_id = f"llm-calls#{day}"
-        row = self.db.execute("SELECT calls FROM usage WHERE counter_id = ?", (counter_id,)).fetchone()
-        if row and row[0] >= limit:
-            return False
-        self.db.execute(
-            "INSERT INTO usage VALUES (?, 1) "
-            "ON CONFLICT(counter_id) DO UPDATE SET calls = calls + 1",
-            (counter_id,),
-        )
-        return True
 
     def add_keys(self, keys: list[str]) -> None:
         self.db.executemany("INSERT OR IGNORE INTO seen_keys VALUES (?)", [(key,) for key in keys])

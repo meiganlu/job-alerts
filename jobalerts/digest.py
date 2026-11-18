@@ -1,4 +1,4 @@
-"""Builds the daily digest of jobs that were dropped or scored low."""
+"""Builds the daily digest of jobs that were filtered out."""
 import hashlib
 
 from datetime import datetime, timedelta, timezone

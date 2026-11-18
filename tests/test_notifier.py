@@ -1,8 +1,6 @@
 from jobalerts.models import Job
 from jobalerts.notifier import (build_copy_note, build_message, build_text_message,
-    requirement_fields, short_label, short_locations,
-    short_requirement)
-from jobalerts.extract import Requirement
+    short_label, short_locations)
 
 
 JOB = Job(
@@ -47,32 +45,13 @@ def test_text_message_pings_only_when_asked():
     assert quiet["allowed_mentions"] == {"parse": []}
 
 
-def test_meta_line_replaces_score_and_location_fields():
-    message = build_message(JOB, "apply_now", "meets 83% of required qualifications",
-                            role_id="123", tags=["⭐ Bay Area", "🔒 clearance sponsored"], score=0.83)
+def test_location_line_then_reason_then_tags():
+    message = build_message(JOB, "apply_now", "early-career title",
+                            role_id="123", tags=["⭐ Bay Area", "🔒 clearance obtainable"])
     description = message["embeds"][0]["description"]
-    assert description.startswith("83% match · 📍 Remote US ⭐")
-    assert "meets 83%" not in description          # no repeated score
-    assert "🔒 clearance sponsored" in description  # other tags still shown
+    assert description.splitlines() == ["📍 Remote US ⭐", "early-career title", "🔒 clearance obtainable"]
 
 
-def test_requirement_blocks_gaps_first():
-    fields = requirement_fields([
-        Requirement(requirement="Python", importance="required", kind="hard", status="met"),
-        Requirement(requirement="Java backend", importance="required", kind="hard", status="not_met"),
-        Requirement(requirement="Kubernetes", importance="preferred", kind="hard", status="partial"),
-        Requirement(requirement="Curiosity", importance="required", kind="soft", status="met"),
-    ])
-    assert [field["name"] for field in fields] == ["Required", "Preferred", "Soft skills"]
-    assert fields[0]["value"] == "🚩 Java backend\n🌿 Python"
-
-
-def test_short_requirement():
-    assert short_requirement("Working knowledge of SQL, Python, or other scripting languages.") \
-        == "SQL, Python, or other scripting languages"
-    cut = short_requirement("Familiarity with data mining, data visualization, and "
-                            "foundational statistical modeling")
-    assert cut == "Data mining, data visualization, and…"
 
 
 def test_short_locations():

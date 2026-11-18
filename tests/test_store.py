@@ -28,13 +28,6 @@ def test_decisions_since_returns_dicts():
     assert rows[0]["job_key"] == JOB.key
 
 
-def test_daily_llm_budget():
-    store = SeenStore(":memory:")
-    assert store.reserve_llm_call("2026-11-15", limit=2)
-    assert store.reserve_llm_call("2026-11-15", limit=2)
-    assert not store.reserve_llm_call("2026-11-15", limit=2)  # budget used up
-    assert store.reserve_llm_call("2026-11-16", limit=2)      # new day, fresh budget
-
 
 def test_add_keys():
     store = SeenStore(":memory:")

@@ -18,7 +18,7 @@ ENV = dotenv_values(".env")  # read non-secret settings like the model ID
 # Files the Lambda bundle needs
 BUNDLE_COMMAND = (
     "pip install -r requirements.txt -t /asset-output && "
-    "cp -r jobalerts companies.yaml criteria.yaml resume.txt /asset-output"
+    "cp -r jobalerts companies.yaml criteria.yaml /asset-output"
 )
 
 

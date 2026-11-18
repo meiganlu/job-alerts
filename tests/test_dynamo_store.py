@@ -62,7 +62,7 @@ def test_dedupe_works_with_dynamo(store):
 
 def test_decision_round_trip(store):
     job = make_job("1")
-    store.save_decision(job, Decision(channel="digest", reason="low match", score=0.2))
+    store.save_decision(job, Decision(channel="digest", reason="low match"))
     assert store.channel_for(job.key) == "digest"
     store.set_channel(job.key, "maybe")
     assert store.channel_for(job.key) == "maybe"
@@ -82,8 +82,3 @@ def test_forget(store):
     split_new([job], store)
     store.forget(job.key)
     assert not store.has_key(job.key)
-
-
-def test_daily_llm_budget_dynamo(store):
-    assert store.reserve_llm_call("2026-11-15", limit=1)
-    assert not store.reserve_llm_call("2026-11-15", limit=1)
