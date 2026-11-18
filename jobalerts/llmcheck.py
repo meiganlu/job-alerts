@@ -33,7 +33,8 @@ Candidate: BS in Computer Science, graduated {GRADUATION}; no graduate degree; i
 - grad_start / grad_end: only if applicants must graduate within a window. Format YYYY-MM.
 - degree_required: minimum degree REQUIRED. "bachelors_or_none" if a Bachelor's or equivalent experience is accepted.
 - clearance: "active_required" only if the candidate must already hold one; "obtainable" if they can get one after hire.
-- outside_us: true only if the job must be done from outside the United States.
+- outside_us: true if the job must be done from outside the United States, including when its Location is a
+  non-US city or country. Copy the location exactly as written into location_quote.
 - field_excludes_cs: true only if the posting REQUIRES a degree in specific fields and none of them is
   Computer Science, Computer/Software Engineering, or a "related"/"technical" field
   (e.g. "BS in Mechanical or Electrical Engineering required"). Quote the field wording in field_quote.
@@ -108,13 +109,18 @@ def find_blocker(report: Report, job: Job) -> tuple[str, str] | None:
         years = min_years(report.years_quote)
         if years is not None and years > MAX_YEARS:
             return "drop", f'{years}+ years required: "{report.years_quote[:200]}"'
+    location = _norm(job.location)
+    # The model often adds the country ("Milan" → "Milan, Italy"); accept a quote containing the job's location
+    location_ok = verified(report.location_quote) or (
+        bool(location) and "remote" not in location and location in _norm(report.location_quote))
     checks = [
         (report.seniority in ("mid", "senior"), report.seniority_quote, f"{report.seniority}-level role"),
         (not _in_window(report.grad_start, report.grad_end), report.grad_quote,
          f"graduation window excludes {GRADUATION}"),
         (report.degree_required != "bachelors_or_none", report.degree_quote, "graduate degree required"),
         (report.clearance == "active_required", report.clearance_quote, "active clearance required"),
-        (report.outside_us, report.location_quote, "outside the US"),
+        (report.outside_us and location_ok,
+         report.location_quote if verified(report.location_quote) else job.location, "outside the US"),
         (report.field_excludes_cs and not _CS_FRIENDLY.search(report.field_quote), report.field_quote,
          "degree field excludes CS"),
     ]

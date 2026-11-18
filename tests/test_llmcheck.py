@@ -92,3 +92,17 @@ def test_non_cs_field_goes_to_digest():
 def test_cs_or_related_field_is_never_blocked():
     decision, _ = check({"field_excludes_cs": True, "field_quote": "BS in Computer Science or related field"})
     assert decision.channel == "maybe"
+
+
+
+def test_non_us_location_with_added_country_goes_to_digest():
+    milan = Job(source="ashby", company="lexroom", job_id="2", title="Junior Software Engineer",
+                location="Milan", url="https://example.com/2", description="Python. Fluency in Italian.")
+    decision = llmcheck.second_opinion(milan, Decision(channel="apply_now", tags=[], reason="rules"),
+                                       FakeStore(), FakeClient({"outside_us": True, "location_quote": "Milan, Italy"}))
+    assert decision.channel == "digest"
+
+
+def test_remote_location_needs_a_real_quote():
+    decision, _ = check({"outside_us": True, "location_quote": "Remote (EMEA only)"})
+    assert decision.channel == "maybe"

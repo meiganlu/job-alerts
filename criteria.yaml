@@ -106,6 +106,23 @@ non_us_markers: [uk, united kingdom, england, london, ireland, dublin,
   melbourne, new zealand, brazil, sao paulo, mexico, argentina, colombia,
   israel, tel aviv, uae, dubai, emea, apac, latam, europe]
 
+# Non-US tech cities (bare names that usually mean the US, like Cambridge or Richmond, are left out).
+# A US state after a comma still wins: "Milan, TN" stays in scope.
+non_us_cities: [milan, milano, rome, turin, bologna, naples, edinburgh, glasgow, bristol, belfast,
+  cork, galway, ottawa, waterloo, kitchener, calgary, edmonton, quebec, montréal, hamburg, frankfurt,
+  cologne, stuttgart, düsseldorf, dusseldorf, leipzig, dresden, lyon, toulouse, marseille, bordeaux,
+  brussels, antwerp, ghent, rotterdam, the hague, utrecht, eindhoven, geneva, lausanne, basel, bern,
+  vienna, prague, brno, budapest, bucharest, cluj, sofia, belgrade, zagreb, ljubljana, istanbul,
+  ankara, krakow, kraków, wroclaw, wrocław, gdansk, gdańsk, poznan, vilnius, riga, tallinn, kyiv, kiev,
+  lviv, helsinki, oslo, copenhagen, gothenburg, malmö, malmo, reykjavik, porto, seville, valencia, bilbao,
+  jerusalem, haifa, herzliya, raanana, ra'anana, petah tikva, cairo, lagos, nairobi, cape town,
+  johannesburg, chennai, mumbai, delhi, new delhi, gurgaon, gurugram, noida, kolkata, ahmedabad, kochi,
+  shanghai, beijing, shenzhen, guangzhou, hangzhou, chengdu, taipei, osaka, kyoto, busan, manila,
+  jakarta, kuala lumpur, bangkok, ho chi minh city, hanoi, karachi, lahore, islamabad, dhaka, brisbane,
+  perth, adelaide, auckland, wellington, guadalajara, monterrey, mexico city, bogota, bogotá, medellin,
+  medellín, buenos aires, santiago, lima, montevideo, são paulo, rio de janeiro, curitiba,
+  belo horizonte, riyadh, doha, abu dhabi]
+
 bay_area: [bay area, san francisco, san jose, oakland, berkeley, palo alto,
   mountain view, sunnyvale, santa clara, menlo park, redwood city,
   cupertino, fremont, san mateo, burlingame, foster city, milpitas]

@@ -97,3 +97,12 @@ def test_qa_titles_need_a_software_word():
     assert not title_in_scope("QA Analyst")
     for title in ("QA Engineer", "Software Tester", "Test Automation Specialist", "SDET", "QA Automation Engineer"):
         assert title_in_scope(title), title
+
+
+
+def test_non_us_cities_are_out_unless_a_us_state_follows():
+    from jobalerts.filters import location_in_scope
+    assert not location_in_scope("Milan")
+    assert not location_in_scope("Waterloo, Ontario")
+    assert location_in_scope("Milan, TN")
+    assert location_in_scope("Milan; San Francisco, CA")
