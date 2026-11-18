@@ -92,3 +92,10 @@ def test_alert_has_applied_button():
     assert button["custom_id"] == f"applied:{JOB.key}"
     assert build_message(JOB, "filtered_out", "x", "123")["components"] == []
     assert button["label"] == "Apply"
+
+
+def test_quiet_alert_keeps_button_but_does_not_ping():
+    message = build_message(JOB, "maybe", "test", role_id="123", quiet=True)
+    assert message["content"] == ""
+    assert message["allowed_mentions"] == {"roles": []}
+    assert message["components"]

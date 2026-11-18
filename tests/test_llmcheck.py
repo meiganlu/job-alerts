@@ -106,3 +106,13 @@ def test_non_us_location_with_added_country_goes_to_digest():
 def test_remote_location_needs_a_real_quote():
     decision, _ = check({"outside_us": True, "location_quote": "Remote (EMEA only)"})
     assert decision.channel == "maybe"
+
+
+
+def test_maybe_stops_at_its_share_but_apply_now_still_checked():
+    store = FakeStore(spent=int(llmcheck.BUDGET_MICROS * 0.7))  # past #maybe's 60% share
+    decision, client = check({}, store)
+    assert client.calls == 0 and llmcheck.UNCHECKED_TAG in decision.tags
+    client = FakeClient({})
+    decision = llmcheck.second_opinion(job(), Decision(channel="apply_now", tags=[], reason="rules"), store, client)
+    assert client.calls == 1

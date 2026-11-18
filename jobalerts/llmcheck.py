@@ -18,6 +18,8 @@ from jobalerts.text import trim_boilerplate
 
 PACIFIC = ZoneInfo("America/Los_Angeles")
 BUDGET_MICROS = int(float(os.environ.get("LLM_DAILY_BUDGET", "0.16")) * 1_000_000)
+MAYBE_SHARE = 0.6  # #maybe checks stop at 60% of the day's budget; the rest is saved for #apply-now
+UNCHECKED_TAG = "⚙️ not LLM-checked (daily budget used)"
 GRADUATION = str(RULES["graduation"])  # "2025-06"
 MAX_YEARS = RULES["max_years_required"]  # 2
 _MONTH = re.compile(r"^\d{4}-\d{2}$")
@@ -133,8 +135,9 @@ def find_blocker(report: Report, job: Job) -> tuple[str, str] | None:
 def second_opinion(job: Job, decision: Decision, store, client=None) -> Decision:
     """Checks a job the rules would alert on. Falls back to the rules' decision on any problem."""
     day = datetime.now(PACIFIC).date().isoformat()
-    if store.llm_spent(day) >= BUDGET_MICROS:
-        decision.tags.append("⚙️ rules only (daily LLM budget reached)")
+    limit = BUDGET_MICROS if decision.channel == "apply_now" else int(BUDGET_MICROS * MAYBE_SHARE)
+    if store.llm_spent(day) >= limit:
+        decision.tags.append(UNCHECKED_TAG)
         return decision
     try:
         report = _ask(job, store, day, client or _client())

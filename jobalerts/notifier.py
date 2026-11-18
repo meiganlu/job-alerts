@@ -98,9 +98,11 @@ def applied_components(job_key: str, applied_on: str | None = None) -> list[dict
 
 def build_message(job: Job, channel: str, reason: str, role_id: str,
                   tags: list[str] | None = None, score: float | None = None,
-                  requirements: list | None = None) -> dict:
-    """Builds the message Discord will display. Makes no network calls."""
-    ping = channel in PING_CHANNELS  # True only for apply_now and maybe
+                  requirements: list | None = None, quiet: bool = False) -> dict:
+    """Builds the message Discord will display. Makes no network calls.
+    quiet=True posts an alert card without pinging your phone."""
+    alert = channel in PING_CHANNELS  # apply_now and maybe get the Apply button
+    ping = alert and not quiet
     tags = tags or []
     bay_area = "⭐ Bay Area" in tags
 
@@ -132,14 +134,14 @@ def build_message(job: Job, channel: str, reason: str, role_id: str,
                 "fields": requirement_fields(requirements or []),
             }
         ],
-        "components": applied_components(job.key) if ping else [],
+        "components": applied_components(job.key) if alert else [],
     }
 
 
 def send(job: Job, channel: str, reason: str, tags: list[str] | None = None,
-         score: float | None = None, requirements: list | None = None) -> None:
+         score: float | None = None, requirements: list | None = None, quiet: bool = False) -> None:
     """Posts a job alert. If Discord refuses the button, the alert still goes out without it."""
-    message = build_message(job, channel, reason, config.role_id(), tags, score, requirements)
+    message = build_message(job, channel, reason, config.role_id(), tags, score, requirements, quiet)
     url = config.webhook_url(channel)
     response = _post(url + "?with_components=true", message)
     if response.status_code == 400 and message.get("components"):

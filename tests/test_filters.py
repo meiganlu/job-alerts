@@ -106,3 +106,12 @@ def test_non_us_cities_are_out_unless_a_us_state_follows():
     assert not location_in_scope("Waterloo, Ontario")
     assert location_in_scope("Milan, TN")
     assert location_in_scope("Milan; San Francisco, CA")
+
+
+
+def test_non_engineering_jobs_in_engineering_departments_are_out():
+    from jobalerts.filters import title_in_scope
+    for title in ("Administrative Business Partner I - Engineering, Product and Design",
+                  "Technical Recruiter, Engineering", "Executive Assistant, Engineering",
+                  "Engineering Program Coordinator"):
+        assert not title_in_scope(title), title

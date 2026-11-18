@@ -80,6 +80,19 @@ title_exclude:
   - systems engineer
   - system engineer
   - legal engineer
+  # not engineering jobs, even with "Engineering" in the title ("Recruiter, Engineering")
+  - administrative
+  - assistant
+  - business partner
+  - coordinator
+  - recruiter
+  - recruiting
+  - sourcer
+  - talent
+  - executive
+  - writer
+  - marketing
+  - designer
 
 us_markers: [united states, usa, us, u.s., americas, north america,
   alabama, alaska, arizona, arkansas, california, colorado, connecticut,

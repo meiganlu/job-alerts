@@ -1,4 +1,4 @@
-from jobalerts.precheck import obvious_years_required
+from jobalerts.precheck import years_preferred, obvious_years_required
 
 
 def test_plain_requirement_is_caught():
@@ -35,3 +35,21 @@ def test_years_without_the_word_experience():
     assert obvious_years_required("- 4+ years of backend development")[0] == 4
     assert obvious_years_required("Acme was founded 10 years ago.") is None
     assert obvious_years_required("Open to students within 2 years of graduation.") is None
+
+
+
+def test_soft_word_about_a_detail_keeps_the_years_required():
+    assert obvious_years_required(
+        "- A minimum of 4 years of administrative experience, ideally supporting executives.")[0] == 4
+    assert obvious_years_required("- 4+ years of experience, preferably in fintech")[0] == 4
+    assert obvious_years_required("- Ideally 4+ years of experience") is None
+    assert years_preferred("- Ideally 4+ years of experience")[0] == 4
+
+
+
+def test_including_a_smaller_number_still_requires_the_first():
+    text = ("What we're looking for:\n"
+            "Minimum of 4 years of administrative experience, including minimum of 2 years supporting VP "
+            "and Director level executives within the tech industry.")
+    assert obvious_years_required(text)[0] == 4
+    assert obvious_years_required("- 3+ years of experience with Python and 2+ years with AWS")[0] == 3

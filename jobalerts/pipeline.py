@@ -16,7 +16,7 @@ from jobalerts.models import Job
 from jobalerts.sources import greenhouse
 from jobalerts.notifier import APPLIED_EMOJI
 from jobalerts.rules import classify
-from jobalerts.llmcheck import second_opinion
+from jobalerts.llmcheck import UNCHECKED_TAG, second_opinion
 
 
 ALERT_CHANNELS = {"apply_now", "maybe"}
@@ -80,7 +80,9 @@ def process(job: Job, store, counts: Counter) -> bool:
             decision.tags += applied_tag(job, store)
         store.save_decision(job, decision)
         if decision.channel in ALERT_CHANNELS:
-            notifier.send(job, decision.channel, decision.reason, decision.tags)
+            # An unchecked #maybe card is posted without pinging your phone
+            quiet = decision.channel == "maybe" and UNCHECKED_TAG in decision.tags
+            notifier.send(job, decision.channel, decision.reason, decision.tags, quiet=quiet)
     except Exception as error:
         print(f"! failed on {job.company}: {job.title} ({error!r}); retrying next run")
         store.forget(job.key, fingerprint(job))
