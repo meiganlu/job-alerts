@@ -40,6 +40,8 @@ Candidate: BS in Computer Science, graduated {GRADUATION}; no graduate degree; i
 - field_excludes_cs: true only if the posting REQUIRES a degree in specific fields and none of them is
   Computer Science, Computer/Software Engineering, or a "related"/"technical" field
   (e.g. "BS in Mechanical or Electrical Engineering required"). Quote the field wording in field_quote.
+- not_software: true only if this is clearly not a software job (software, QA/test, data, or ML engineering),
+  e.g. environmental, mechanical, or sales work. Quote the posting's words that show the job's main duty.
 - requirements: up to 6 required qualifications, each under 8 words, most important first."""
 
 
@@ -56,6 +58,8 @@ class Report(BaseModel):
     clearance_quote: str = ""
     outside_us: bool = False
     location_quote: str = ""
+    not_software: bool = False
+    duty_quote: str = ""
     field_excludes_cs: bool = False
     field_quote: str = ""
     requirements: list[str] = []
@@ -123,6 +127,7 @@ def find_blocker(report: Report, job: Job) -> tuple[str, str] | None:
         (report.clearance == "active_required", report.clearance_quote, "active clearance required"),
         (report.outside_us and location_ok,
          report.location_quote if verified(report.location_quote) else job.location, "outside the US"),
+        (report.not_software, report.duty_quote, "not a software role"),
         (report.field_excludes_cs and not _CS_FRIENDLY.search(report.field_quote), report.field_quote,
          "degree field excludes CS"),
     ]

@@ -93,6 +93,20 @@ title_exclude:
   - writer
   - marketing
   - designer
+  # other engineering disciplines (not software)
+  - environmental engineer
+  - geotechnical engineer
+  - biomedical engineer
+  - petroleum engineer
+  - nuclear engineer
+  - aerospace engineer
+  - materials engineer
+  - industrial engineer
+  - mining engineer
+  - facilities engineer
+  - construction
+  - hvac
+  - geologist
 
 us_markers: [united states, usa, us, u.s., americas, north america,
   alabama, alaska, arizona, arkansas, california, colorado, connecticut,

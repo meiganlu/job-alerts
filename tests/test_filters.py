@@ -115,3 +115,12 @@ def test_non_engineering_jobs_in_engineering_departments_are_out():
                   "Technical Recruiter, Engineering", "Executive Assistant, Engineering",
                   "Engineering Program Coordinator"):
         assert not title_in_scope(title), title
+
+
+
+def test_other_engineering_disciplines_are_out():
+    from jobalerts.filters import title_in_scope
+    for title in ("Environmental Engineer, Scientist, or Geologist I", "Geotechnical Engineer I",
+                  "Biomedical Engineer, New Grad", "Aerospace Engineer I"):
+        assert not title_in_scope(title), title
+    assert title_in_scope("Software Engineer, Aerospace Systems")

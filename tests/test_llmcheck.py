@@ -116,3 +116,15 @@ def test_maybe_stops_at_its_share_but_apply_now_still_checked():
     client = FakeClient({})
     decision = llmcheck.second_opinion(job(), Decision(channel="apply_now", tags=[], reason="rules"), store, client)
     assert client.calls == 1
+
+
+
+def test_non_software_job_goes_to_digest():
+    environmental = Job(source="greenhouse", company="true-environmental", job_id="3",
+                        title="Environmental Engineer, Scientist, or Geologist I", location="New York",
+                        url="https://example.com/3",
+                        description="Conduct Phase I and II Environmental Site Assessments and soil boring logging.")
+    report = {"not_software": True, "duty_quote": "Conduct Phase I and II Environmental Site Assessments"}
+    decision = llmcheck.second_opinion(environmental, Decision(channel="apply_now", tags=[], reason="rules"),
+                                       FakeStore(), FakeClient(report))
+    assert decision.channel == "digest"
