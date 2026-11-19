@@ -18,6 +18,12 @@ _OBTAIN_CLEARANCE = re.compile(
     r"\b(obtain|eligible|eligibility)\b[^.\n]{0,40}\bclearance\b", re.IGNORECASE)
 _NOT_FULL_TIME = re.compile(r"\b(part[- ]time|freelance\w*|temporary|seasonal)\b", re.IGNORECASE)
 _FULL_TIME = re.compile(r"\bfull[- ]time\b", re.IGNORECASE)
+_BENEFITS = re.compile(r"\b(benefits?|employees|eligible)\b", re.IGNORECASE)  # "Benefits for temporary employees"
+# The posting itself says the role is early-career ("0-2 years…; entry-level candidate")
+_EARLY_WORDING = re.compile(
+    r"\b(entry[- ]level|new grad(uate)?s?|recent (college )?grad(uate)?s?|early[- ]career)\b"
+    r"|\b0\s*(-|to)\s*[12]\s*years?\b|\b0\+?\s*years?\b", re.IGNORECASE)
+_MENTOR = re.compile(r"\b(mentor\w*|coach\w*|onboard\w*)\b", re.IGNORECASE)  # "you'll mentor new grads"
 _GRAD_DEGREE = re.compile(r"\b(master'?s|m\.s\.|ph\.?d|doctorate)", re.IGNORECASE)
 _UNDERGRAD = re.compile(r"\b(bachelor'?s|b\.s\.|b\.a\.|undergraduate|equivalent)", re.IGNORECASE)
 _REQUIRED_WORD = re.compile(r"\b(required|requires?|must|minimum)\b", re.IGNORECASE)
@@ -71,7 +77,17 @@ def active_clearance(text: str) -> str | None:
 def not_full_time(text: str) -> str | None:
     """A sentence saying the job is part-time, freelance, or temporary (and not also full-time)."""
     for sentence, _ in sentences(text):
-        if _NOT_FULL_TIME.search(sentence) and not _FULL_TIME.search(sentence):
+        if (_NOT_FULL_TIME.search(sentence) and not _FULL_TIME.search(sentence)
+                and not _BENEFITS.search(sentence)):
+            return sentence[:200]
+    return None
+
+
+def early_career_wording(text: str) -> str | None:
+    """A sentence where the posting calls the role entry-level / early-career / 0-2 years."""
+    for sentence, _ in sentences(text):
+        if (_EARLY_WORDING.search(sentence) and not _NEGATION.search(sentence)
+                and not _MENTOR.search(sentence)):
             return sentence[:200]
     return None
 
@@ -123,4 +139,7 @@ def classify(job: Job) -> Decision:
         return Decision(channel="maybe", tags=tags, reason="customer-facing role: check the qualifications")
     if is_early_career(job.title) or LEVEL_I.search(job.title):
         return Decision(channel="apply_now", tags=tags, reason="early-career title")
+    wording = early_career_wording(text)
+    if wording:
+        return Decision(channel="apply_now", tags=tags, reason=f'early-career per posting: "{wording}"')
     return Decision(channel="maybe", tags=tags, reason="no early-career title; experience within your range")

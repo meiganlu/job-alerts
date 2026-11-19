@@ -83,3 +83,18 @@ def test_part_time_and_freelance_go_to_digest():
                  "Temporary 6-month position."):
         assert classify(job(description=text)).channel == "digest", text
     assert classify(job(description="Full-time or part-time schedules available.")).channel == "maybe"
+
+
+
+def test_early_career_wording_in_posting_goes_to_apply_now():
+    decision = classify(job("Development Engineer",
+                            "Requirements:\n0-2 years or equivalent experience; entry-level candidate"))
+    assert decision.channel == "apply_now"
+    assert "0-2 years" in decision.reason
+    assert classify(job(description="You will mentor new grads on the team.")).channel == "maybe"
+    assert classify(job(description="This is not an entry-level role.")).channel == "maybe"
+
+
+def test_benefits_for_temporary_staff_is_not_a_part_time_job():
+    text = "Benefits Offered Temporary/Contractors:\nEligible for benefit programs through partner agencies."
+    assert classify(job(description=text)).channel == "maybe"
